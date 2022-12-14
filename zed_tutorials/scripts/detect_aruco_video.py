@@ -1,21 +1,24 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # import the necessary packages
-from imutils.video import VideoStream
+# import imutils
+# from imutils.video import VideoStream
+import rospy
 import pyzed.sl as sl
 import numpy as np
 import argparse
-import imutils
 import time
 import cv2
 import sys
 import math
-import rospy
+from std_msgs.msg import String
 
 def main():	
 	rospy.init_node('dete_aruco', anonymous=True)
 	# Create a Camera object
 	zed = sl.Camera()
+	debug_topic = rospy.Publisher("/debug_print", String, queue_size=1)
+
 
 	# construct the argument parser and parse the arguments
 	ap = argparse.ArgumentParser()
@@ -44,14 +47,16 @@ def main():
 		"DICT_7X7_250": cv2.aruco.DICT_7X7_250,
 		"DICT_7X7_1000": cv2.aruco.DICT_7X7_1000,
 		"DICT_ARUCO_ORIGINAL": cv2.aruco.DICT_ARUCO_ORIGINAL,
-	#	"DICT_APRILTAG_16h5": cv2.aruco.DICT_APRILTAG_16h5,
-	#	"DICT_APRILTAG_25h9": cv2.aruco.DICT_APRILTAG_25h9,
-	#	"DICT_APRILTAG_36h10": cv2.aruco.DICT_APRILTAG_36h10,
-	#	"DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11
+		"DICT_APRILTAG_16h5": cv2.aruco.DICT_APRILTAG_16h5,
+		"DICT_APRILTAG_25h9": cv2.aruco.DICT_APRILTAG_25h9,
+		"DICT_APRILTAG_36h10": cv2.aruco.DICT_APRILTAG_36h10,
+		"DICT_APRILTAG_36h11": cv2.aruco.DICT_APRILTAG_36h11
 	}
 
 	# verify that the supplied ArUCo tag exists and is supported by
 	# OpenCV
+	# Lines 43-46 check to see if the ArUco tag --type exists in our ARUCO_DICT. If not, we exit the script.
+
 	if ARUCO_DICT.get(args["type"], None) is None:
 		print("[INFO] ArUCo tag of '{}' is not supported".format(
 			args["type"]))
@@ -93,14 +98,16 @@ def main():
 	# Capture images while ros is running
 	image_zed = sl.Mat(image_size.width, image_size.height, sl.MAT_TYPE.U8_C4)
 	depth_image_zed = sl.Mat(image_size.width, image_size.height, sl.MAT_TYPE.U8_C4)
-	point_cloud = sl.Mat
+	point_cloud = sl.Mat()
+
+	# debug_topic.publish("{t}".format(t=type(image_zed)))
 
 	mirror_ref = sl.Transform()
 	mirror_ref.set_translation(sl.Translation(2.75,4.0,0))
 	tr_np = mirror_ref.m
 
 	# loop over the frames from the video stream
-	while True:
+	while not rospy.is_shutdown():
 		if zed.grab(runtime_parameters) == sl.ERROR_CODE.SUCCESS:
 	        # Retrieve left image
 			zed.retrieve_image(image_zed, sl.VIEW.LEFT, sl.MEM.CPU, image_size)
@@ -109,8 +116,12 @@ def main():
 	        # Retrieve colored point cloud. Point cloud is aligned on the left image.
 			zed.retrieve_measure(point_cloud, sl.MEASURE.XYZRGBA, sl.MEM.CPU, image_size)
 			image_ocv = image_zed.get_data()
+			image_ocv = np.uint8(image_ocv)
+			image_ocv = image_ocv[:,:,:-1]
 			depth_image_ocv = depth_image_zed.get_data()
 			point_cloud_ocv = point_cloud.get_data()
+
+			debug_topic.publish("{t}, size: {s}".format(t=type(image_ocv), s=image_ocv.shape))
 
 	        # Get and print distance value in mm at the center of the image
 	        # We measure the distance camera - object using Euclidean distance
@@ -135,6 +146,7 @@ def main():
 		(corners, ids, rejected) = cv2.aruco.detectMarkers(image_ocv,
 			arucoDict, parameters=arucoParams)
 
+		final_img = image_ocv.copy()
 		# verify *at least* one ArUco marker was detected
 		if len(corners) > 0:
 			# flatten the ArUco IDs list
@@ -154,33 +166,35 @@ def main():
 				bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
 				topLeft = (int(topLeft[0]), int(topLeft[1]))
 
+
+
 				# draw the bounding box of the ArUCo detection
-				cv2.line(image_ocv, topLeft, topRight, (0, 255, 0), 2)
-				cv2.line(image_ocv, topRight, bottomRight, (0, 255, 0), 2)
-				cv2.line(image_ocv, bottomRight, bottomLeft, (0, 255, 0), 2)
-				cv2.line(image_ocv, bottomLeft, topLeft, (0, 255, 0), 2)
+				cv2.line(final_img, topLeft, topRight, (0, 255, 0), 2)
+				cv2.line(final_img, topRight, bottomRight, (0, 255, 0), 2)
+				cv2.line(final_img, bottomRight, bottomLeft, (0, 255, 0), 2)
+				cv2.line(final_img, bottomLeft, topLeft, (0, 255, 0), 2)
 
 				# compute and draw the center (x, y)-coordinates of the
 				# ArUco marker
 				cX = int((topLeft[0] + bottomRight[0]) / 2.0)
 				cY = int((topLeft[1] + bottomRight[1]) / 2.0)
-				cv2.circle(image_ocv, (cX, cY), 4, (0, 0, 255), -1)
+				cv2.circle(final_img, (cX, cY), 4, (0, 0, 255), -1)
 
 				# draw the ArUco marker ID on the frame
-				cv2.putText(image_ocv, str(markerID),
+				cv2.putText(final_img, str(markerID),
 					(topLeft[0], topLeft[1] - 15),
 					cv2.FONT_HERSHEY_SIMPLEX,
 					0.5, (0, 255, 0), 2)
 
 		# show the output frame
-		cv2.imshow("Image", image_ocv)
+		cv2.imshow("Image", final_img)
 		key = cv2.waitKey(1) & 0xFF
 
 		# if the `q` key was pressed, break from the loop
 		if key == ord("q"):
 			break
 
-	# do a bit of cleanup
+	# do a bit of cleanupimage_ocv =
 	cv2.destroyAllWindows()
 	zed.close()
 
