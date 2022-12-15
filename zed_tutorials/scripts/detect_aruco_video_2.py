@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+
+import rospy
+import pyzed.sl as sl
+import numpy as np
+import argparse
+import time
+import cv2
+import sys
+import math
+from std_msgs.msg import String, Int8
+
+class ArucoDetector():
+    def __init__(self, aruco_dict = cv2.aruco.DICT_5X5_100):
+        rospy.init_node("aruco_detector")
+
+        # ________ aruco atributes initialization ______
+        self.arucoDict = cv2.aruco.Dictionary_get(aruco_dict)
+        self.arucoParams = cv2.aruco.DetectorParameters_create()
+
+        # ________ camera atributes initialization ______
+        self.zed_camera = sl.Camera()
+        self.zed_init_params = sl.InitParameters()
+        self.zed_init_params.depth_mode = sl.DEPTH_MODE.ULTRA  # Use PERFORMANCE depth mode
+        self.zed_init_params.camera_resolution = sl.RESOLUTION.HD720
+        err = self.zed_camera.open(self.zed_init_params)
+        if err != sl.ERROR_CODE.SUCCESS:
+            exit(1)
+        rospy.sleep(2.0)
+        self.zed_runtime_parameters = sl.RuntimeParameters()
+        self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
+        self.zed_runtime_parameters.confidence_threshold = 100
+        self.zed_runtime_parameters.textureness_confidence_threshold = 100
+        self.image_size = self.zed_camera.get_camera_information().camera_resolution
+        self.image_size.width = self.image_size.width /2
+        self.image_size.height = self.image_size.height /2
+
+        self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
+        # TODO: delete depth_image_zed after debugging
+        self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
+        self.point_cloud = sl.Mat()
+        self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+        self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+        self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+        self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+
+        # ________ ros atributes initialization ______
+        self.debug_topic = rospy.Publisher("/debug_print", String, queue_size=1)
+        self.aruco_distances_publisher = rospy.Publisher("/aruco_distances", String, queue_size = 1)
+
+    def draw_arucos(sel, image, corners):
+        # verify *at least* one ArUco marker was detected
+        if len(corners) > 0:
+			# loop over the detected ArUCo corners
+            for markerCorner in corners:
+				# extract the marker corners (which are always returned
+				# in top-left, top-right, bottom-right, and bottom-left
+				# order)
+                corners = markerCorner.reshape((4, 2))
+
+                (topLeft, topRight, bottomRight, bottomLeft) = corners
+
+				# convert each of the (x, y)-coordinate pairs to integers
+                topRight = (int(topRight[0]), int(topRight[1]))
+                bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
+                bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
+                topLeft = (int(topLeft[0]), int(topLeft[1]))
+
+				# draw the bounding box of the ArUCo detection
+                cv2.line(image, topLeft, topRight, (0, 255, 0), 2)
+                cv2.line(image, topRight, bottomRight, (0, 255, 0), 2)
+                cv2.line(image, bottomRight, bottomLeft, (0, 255, 0), 2)
+                cv2.line(image, bottomLeft, topLeft, (0, 255, 0), 2)
+        return image
+
+    def get_arucos_info_in_image(self, image):
+        # detect ArUco markers in the input frame
+        (corners, ids, rejected) = cv2.aruco.detectMarkers(image,
+                    self.arucoDict, parameters=self.arucoParams)
+        # self.debug_topic.publish("aruco corners : {c}, aruco corners dtype {t}".format(c = corners, t = type(corners)))
+        return (corners, ids)
+
+    def midpoint_equation(self, p1, p2):
+        return ( (p1[0]+p2[0])/2, (p1[1]+p2[1])/2 )
+
+    def get_aruco_midpoint(self, rectangle_corners):
+        result = self.midpoint_equation(rectangle_corners[0,:], rectangle_corners[2,:])
+        return (int(result[0]), int(result[1]))
+
+    def main(self):
+        while not rospy.is_shutdown():
+            if self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
+                # Retrieve left image
+                self.zed_camera.retrieve_image(self.image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size)
+                # Retrieve depth map. Depth is aligned on the left image
+                self.zed_camera.retrieve_image(self.depth_image_zed, sl.VIEW.DEPTH, sl.MEM.CPU, self.image_size)
+                # Retrieve colored point cloud. Point cloud is aligned on the left image.
+                self.zed_camera.retrieve_measure(self.point_cloud, sl.MEASURE.DEPTH, sl.MEM.CPU, self.image_size)
+                self.image_ocv = self.image_zed.get_data()
+                self.image_ocv = self.image_ocv[:,:,:-1]
+                self.depth_image_ocv = self.depth_image_zed.get_data()
+                self.point_cloud_ocv = self.point_cloud.get_data()
+
+                aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
+                self.debug_topic.publish("aruco corners : {c}, aruco corners dtype {t}".format(c = aruco_corners, t = type(aruco_corners)))
+                self.displayed_image_ocv = self.draw_arucos(self.imge_ocv, aruco_corners)
+                cv2.imshow("image", self.displayed_image_ocv)
+                cv2.waitKey(1)
+                # self.displayed_image_ocv = self.image_ocv.copy()
+
+if __name__ == "__main__":
+    aruco_detector = ArucoDetector()
+    aruco_detector.main()
