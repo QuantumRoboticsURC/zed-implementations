@@ -44,6 +44,7 @@ class ArucoDetector():
         self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
         self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
+        self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float32)
 
         # ________ ros atributes initialization ______
         self.debug_topic = rospy.Publisher("/debug_print", String, queue_size=1)
@@ -88,7 +89,9 @@ class ArucoDetector():
         rectangle_corners_for_x_y = rectangle_corners.reshape((4,2))
         rectangle_corners_for_mask = np.int32(rectangle_corners.reshape((1,4,2)))
         x_center, y_center = self.midpoint_equation(rectangle_corners_for_x_y[0,:], rectangle_corners_for_x_y[2,:])
-        cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,0,0))
+        cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))
+        one_channel_arucos_mask = (self.arucos_mask[:,:,0] + self.arucos_mask[:,:,1] + self.arucos_mask[:,:,2])/3.0
+        self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
         return (int(x_center), int(y_center))
 
     def main(self):
@@ -114,7 +117,9 @@ class ArucoDetector():
                 self.debug_topic.publish("aruco_centers: {c}".format(c = aruco_centers))
                 cv2.imshow("image", self.displayed_image_ocv)
                 cv2.imshow("aruco mask", self.arucos_mask)
+                cv2.imshow("aruco mask with depth", np.uint8(self.arucos_mask_with_distance))
                 cv2.waitKey(1)
+                self.debug_topic.publish("sum arucos mask: {s}".format(s=sum(self.arucos_mask)))
                 # self.displayed_image_ocv = self.image_ocv.copy()
 
 if __name__ == "__main__":
