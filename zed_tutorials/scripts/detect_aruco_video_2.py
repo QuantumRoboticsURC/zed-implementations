@@ -39,10 +39,11 @@ class ArucoDetector():
         # TODO: delete depth_image_zed after debugging
         self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
         self.point_cloud = sl.Mat()
-        self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+        self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
         self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
-        self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+        self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
+        self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
 
         # ________ ros atributes initialization ______
         self.debug_topic = rospy.Publisher("/debug_print", String, queue_size=1)
@@ -67,10 +68,10 @@ class ArucoDetector():
                 topLeft = (int(topLeft[0]), int(topLeft[1]))
 
 				# draw the bounding box of the ArUCo detection
-                cv2.line(image, topLeft, topRight, (0, 255, 0), 2)
-                cv2.line(image, topRight, bottomRight, (0, 255, 0), 2)
-                cv2.line(image, bottomRight, bottomLeft, (0, 255, 0), 2)
-                cv2.line(image, bottomLeft, topLeft, (0, 255, 0), 2)
+                image = cv2.line(image, topLeft, topRight, (0, 255, 0), 2)
+                image = cv2.line(image, topRight, bottomRight, (0, 255, 0), 2)
+                image = cv2.line(image, bottomRight, bottomLeft, (0, 255, 0), 2)
+                image = cv2.line(image, bottomLeft, topLeft, (0, 255, 0), 2)
         return image
 
     def get_arucos_info_in_image(self, image):
@@ -84,11 +85,15 @@ class ArucoDetector():
         return ( (p1[0]+p2[0])/2, (p1[1]+p2[1])/2 )
 
     def get_aruco_midpoint(self, rectangle_corners):
-        result = self.midpoint_equation(rectangle_corners[0,:], rectangle_corners[2,:])
-        return (int(result[0]), int(result[1]))
+        rectangle_corners_for_x_y = rectangle_corners.reshape((4,2))
+        rectangle_corners_for_mask = np.int32(rectangle_corners.reshape((1,4,2)))
+        x_center, y_center = self.midpoint_equation(rectangle_corners_for_x_y[0,:], rectangle_corners_for_x_y[2,:])
+        cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,0,0))
+        return (int(x_center), int(y_center))
 
     def main(self):
         while not rospy.is_shutdown():
+            self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
             if self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
                 # Retrieve left image
                 self.zed_camera.retrieve_image(self.image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size)
@@ -103,8 +108,12 @@ class ArucoDetector():
 
                 aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
                 self.debug_topic.publish("aruco corners : {c}, aruco corners dtype {t}".format(c = aruco_corners, t = type(aruco_corners)))
-                self.displayed_image_ocv = self.draw_arucos(self.imge_ocv, aruco_corners)
+                self.displayed_image_ocv = self.image_ocv.copy()
+                self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
+                aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))
+                self.debug_topic.publish("aruco_centers: {c}".format(c = aruco_centers))
                 cv2.imshow("image", self.displayed_image_ocv)
+                cv2.imshow("aruco mask", self.arucos_mask)
                 cv2.waitKey(1)
                 # self.displayed_image_ocv = self.image_ocv.copy()
 
