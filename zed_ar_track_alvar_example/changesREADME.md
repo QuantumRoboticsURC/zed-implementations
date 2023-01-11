@@ -1,3 +1,4 @@
+# Changes in the script and RViz
 In order to work correctly we changed the parameters of camera_model = zed2
 marker_size = 20
 max_new_marker_error = 0.2
