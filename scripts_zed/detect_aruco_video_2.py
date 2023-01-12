@@ -1,5 +1,26 @@
 #!/usr/bin/env python3
 
+"""Made by:Erika García Sánchez
+	A01745158@tec.mx
+	erika.mgs@outlook.com
+	José Ángel del Ángel
+
+Modified (15/12/2022): 
+		José Ángel del Ángel and Erika García 16/12/2022 Aruco detection code cleanup 
+		José Ángel del Ángel 16/12/2022 Aruco mask with distance added
+
+Code description:
+1. Ask the user for the name of a file.
+2. If the file exist at a predefined directory it opens it and read it.
+   If not, it creates a file with the name.
+3. Ask the user the action to execute (write lat & long | write the square).
+4. Close the file. 
+
+Notes:
+- Validate the user input
+- Add an exit option
+* Despite the code adds 0.00001 theorically, it's not exact.
+"""
 import rospy
 import pyzed.sl as sl
 import numpy as np
@@ -11,7 +32,7 @@ import math
 from std_msgs.msg import String, Int8
 
 class ArucoDetector():
-    def __init__(self, aruco_dict = cv2.aruco.DICT_5X5_100):
+    def __init__(self, aruco_dict = cv2.aruco.DICT_4X4_50):
         rospy.init_node("aruco_detector")
 
         # ________ aruco atributes initialization ______

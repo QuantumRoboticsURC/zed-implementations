@@ -15,7 +15,30 @@ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
 THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Made by:Walter  Lucetti
+	A01378976@tec.mx
+	https://github.com/stereolabs/zed-ros-examples.git
+
+Modified (10/01/2023): 
+	Erika Garcia 11/01/2023 I changed the parameters of camera_model = zed2
+marker_size = 20
+max_new_marker_error = 0.2
+
+Also in RViz we changed "Fixed frame map" to "Fixed frame base_link" and enable Pose
+
+Code description:
+1. We first declare some variables of the camera such as the model and its name.
+2. Then is the pre configured RVIZ 
+3. Create the ZED Wrapper Node
+4. Configure the parameters of the marker
+
+Notes:
+- Validate the user input
+- Add an exit option
+* Despite the code adds 0.00001 theorically, it's not exact.
 -->
+
 <launch>
     <arg name="camera_name"          default="zed" />
 
