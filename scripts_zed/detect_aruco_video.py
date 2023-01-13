@@ -24,7 +24,7 @@ def main():
 	ap = argparse.ArgumentParser()
 	# default="DICT_ARUCO_ORIGINAL",
 	ap.add_argument("-t", "--type", type=str,
-		default="DICT_5X5_100",
+		default="DICT_4X4_50",
 		help="type of ArUCo tag to detect")
 	args = vars(ap.parse_args())
 
