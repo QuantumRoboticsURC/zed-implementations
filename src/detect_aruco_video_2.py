@@ -68,7 +68,7 @@ class ArucoDetector():
         self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
-        self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
+        self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
         self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float32)
 
         # ________ ros atributes initialization ______
