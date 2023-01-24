@@ -110,6 +110,7 @@ class ArucoDetector():
         return ( (p1[0]+p2[0])/2, (p1[1]+p2[1])/2 )
 
     def get_aruco_midpoint(self, rectangle_corners):
+        self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
         rectangle_corners_for_x_y = rectangle_corners.reshape((4,2))
         rectangle_corners_for_mask = np.int32(rectangle_corners.reshape((1,4,2)))
         x_center, y_center = self.midpoint_equation(rectangle_corners_for_x_y[0,:], rectangle_corners_for_x_y[2,:])
