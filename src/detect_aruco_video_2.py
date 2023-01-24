@@ -38,8 +38,10 @@ class ArucoDetector():
         rospy.init_node("aruco_detector")
 
         # ________ aruco atributes initialization ______
-        self.arucoDict = cv2.aruco.Dictionary_get(aruco_dict)
+        #self.arucoDict = cv2.aruco.Dictionary_get(aruco_dict)
+        self.arucoDict = cv.aruco.getPredefinedDictionary(aruco_dict)
         self.arucoParams = cv2.aruco.DetectorParameters_create()
+        self.arucoDetector = cv.aruco.DetectorParameters()
 
         # ________ camera atributes initialization ______
         self.zed_camera = sl.Camera()
@@ -100,8 +102,7 @@ class ArucoDetector():
 
     def get_arucos_info_in_image(self, image):
         # detect ArUco markers in the input frame
-        (corners, ids, rejected) = cv2.aruco.detectMarkers(image,
-                    self.arucoDict, parameters=self.arucoParams)
+        (corners, ids, rejected) = self.arucoDetector.detectMarkers(image)
         # self.debug_topic.publish("aruco corners : {c}, aruco corners dtype {t}".format(c = corners, t = type(corners)))
         return (corners, ids)
 
@@ -120,6 +121,7 @@ class ArucoDetector():
     def main(self):
         while not rospy.is_shutdown():
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
+            self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float32)
             if self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
                 # Retrieve left image
                 self.zed_camera.retrieve_image(self.image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size)
