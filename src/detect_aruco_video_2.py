@@ -116,10 +116,12 @@ class ArucoDetector():
         x_center, y_center = self.midpoint_equation(rectangle_corners_for_x_y[0,:], rectangle_corners_for_x_y[2,:])
         cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))
         one_channel_arucos_mask = cv2.cvtColor(self.arucos_mask, cv2.COLOR_BGR2GRAY)  /255.0
-        print( "one channel mask maximmum is: {m} ".format(m = one_channel_arucos_mask.max()) ) # TODO: delete this
+        print( "one channel mask dtype: {m} ".format(m = type(one_channel_arucos_mask)) ) # TODO: delete this
         self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
         tag_area = one_channel_arucos_mask.sum()
         if tag_area > 0.0:        
+            print( "arucos mask w distance sum: {m} ".format(m = (self.arucos_mask_with_distance/255.0).sum()) )
+            print( "arucos mask w distance sum: {m} ".format(m = one_channel_arucos_mask.sum() ) )
             z_center = (self.arucos_mask_with_distance/255.0).sum()/one_channel_arucos_mask.sum()
         else:
             z_center = 0.0
