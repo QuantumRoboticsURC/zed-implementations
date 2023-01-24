@@ -120,7 +120,7 @@ class ArucoDetector():
         self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
         tag_area = one_channel_arucos_mask.sum()
         if tag_area > 0.0:        
-            z_center = (self.arucos_mask_with_distance/255.0)/one_channel_arucos_mask.sum()
+            z_center = (self.arucos_mask_with_distance/255.0).sum()/one_channel_arucos_mask.sum()
         else:
             z_center = 0.0
         return (float(x_center), float(y_center), float(z_center) )
