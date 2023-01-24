@@ -4,12 +4,14 @@
 	A01745158@tec.mx
 	erika.mgs@outlook.com
 	José Ángel del Ángel
+    joseangeldelangel10@gmail.com
 
 Modified (15/12/2022): 
 		José Ángel del Ángel and Erika García 16/12/2022 Aruco detection code cleanup 
 		José Ángel del Ángel 16/12/2022 Aruco mask with distance added
 
 Code description:
+TODO - update code description and notes 
 1. Ask the user for the name of a file.
 2. If the file exist at a predefined directory it opens it and read it.
    If not, it creates a file with the name.
