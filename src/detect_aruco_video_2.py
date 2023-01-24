@@ -41,7 +41,7 @@ class ArucoDetector():
         #self.arucoDict = cv2.aruco.Dictionary_get(aruco_dict)
         self.arucoDict = cv2.aruco.getPredefinedDictionary(aruco_dict)
         self.arucoParams = cv2.aruco.DetectorParameters()
-        self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDetector, self.arucoParams)
+        self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
 
         # ________ camera atributes initialization ______
         self.zed_camera = sl.Camera()
