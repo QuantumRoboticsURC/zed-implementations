@@ -117,8 +117,12 @@ class ArucoDetector():
         cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))
         one_channel_arucos_mask = cv2.cvtColor(self.arucos_mask, cv2.COLOR_BGR2GRAY)  /255.0
         print( "one channel mask maximmum is: {m} ".format(m = one_channel_arucos_mask.max()) ) # TODO: delete this
-        self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask        
-        z_center = self.arucos_mask_with_distance.sum()/one_channel_arucos_mask.sum()
+        self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
+        tag_area = one_channel_arucos_mask.sum()
+        if tag_area > 0.0:        
+            z_center = (self.arucos_mask_with_distance/255.0)/one_channel_arucos_mask.sum()
+        else:
+            z_center = 0.0
         return (float(x_center), float(y_center), float(z_center) )
 
     def main(self):
@@ -146,8 +150,7 @@ class ArucoDetector():
                 cv2.imshow("image", self.displayed_image_ocv)
                 cv2.imshow("aruco mask", self.arucos_mask)
                 cv2.imshow("aruco mask with depth", np.uint8(self.arucos_mask_with_distance))
-                cv2.waitKey(1)
-                self.debug_topic.publish("sum arucos mask: {s}".format(s=sum(self.arucos_mask)))
+                cv2.waitKey(1)                
                 # self.displayed_image_ocv = self.image_ocv.copy()
 
 if __name__ == "__main__":
