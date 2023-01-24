@@ -1,2 +1,2 @@
-package.xml
-CMakeLists.txt
+./package.xml
+./CMakeLists.txt
