@@ -114,9 +114,11 @@ class ArucoDetector():
         rectangle_corners_for_mask = np.int32(rectangle_corners.reshape((1,4,2)))
         x_center, y_center = self.midpoint_equation(rectangle_corners_for_x_y[0,:], rectangle_corners_for_x_y[2,:])
         cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))
-        one_channel_arucos_mask = (self.arucos_mask[:,:,0] + self.arucos_mask[:,:,1] + self.arucos_mask[:,:,2])/3.0
-        self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
-        return (int(x_center), int(y_center))
+        one_channel_arucos_mask = (self.arucos_mask[:,:,0] + self.arucos_mask[:,:,1] + self.arucos_mask[:,:,2])/(3.0*255)
+        print( "one channel mask maximmum is: {m} ".format(m = one_channel_arucos_mask.max()) ) # TODO: delete this
+        self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask        
+        z_center = self.arucos_mask_with_distance.sum()/one_channel_arucos_mask.sum()
+        return (float(x_center), float(y_center), float(z_center) )
 
     def main(self):
         while not rospy.is_shutdown():
