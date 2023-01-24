@@ -109,17 +109,21 @@ class ArucoDetector():
         return ( (p1[0]+p2[0])/2, (p1[1]+p2[1])/2 )
 
     def get_aruco_midpoint(self, rectangle_corners):
+        # _____________ getting x, y midpoint _____________
         rectangle_corners_for_x_y = rectangle_corners.reshape((4,2))
         rectangle_corners_for_mask = np.int32(rectangle_corners.reshape((1,4,2)))
         x_center, y_center = self.midpoint_equation(rectangle_corners_for_x_y[0,:], rectangle_corners_for_x_y[2,:])
+        # _____________ getting z midpoint _____________
         cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))
         one_channel_arucos_mask = (self.arucos_mask[:,:,0] + self.arucos_mask[:,:,1] + self.arucos_mask[:,:,2])/3.0
         self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
+        # TODO check that one chanel arucos max is normalized, then get the average depth        
         return (int(x_center), int(y_center))
 
     def main(self):
         while not rospy.is_shutdown():
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
+            self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.int32)            
             if self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
                 # Retrieve left image
                 self.zed_camera.retrieve_image(self.image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size)
