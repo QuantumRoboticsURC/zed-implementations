@@ -31,9 +31,9 @@ import time
 import cv2
 import sys
 import math
-from std_msgs.msg import String, Int8
+from std_msgs.msg import String, Int8, Header
 from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
+
 
 class ArucoDetector():
     def __init__(self, aruco_dict = cv2.aruco.DICT_4X4_50):
@@ -75,6 +75,12 @@ class ArucoDetector():
         # ________ ros atributes initialization ______
         self.debug_topic = rospy.Publisher("/debug_print", String, queue_size=1)
         self.aruco_distances_publisher = rospy.Publisher("/aruco_distances", String, queue_size = 1)
+
+        #__________ image ______________
+        self.curr_signs_image_msg = Image()
+        self.curr_signs_image_msg_2 = Image()
+        self.curr_signs_image_msg_3 = Image()
+
 
     def draw_arucos(sel, image, corners):
         # verify *at least* one ArUco marker was detected
@@ -133,6 +139,25 @@ class ArucoDetector():
     def transform_aruco_midpoint_to_metric_system(aruco_midpoint):
         pass
 
+    def cv2_to_imgmsg(self, image, encoding = "bgr8"):
+        #print("cv2_to_imgmsg image shape is:" + str(image.shape))
+        if encoding == "bgr8":
+            self.curr_signs_image_msg.header = Header()
+            self.curr_signs_image_msg.height = image.shape[0]
+            self.curr_signs_image_msg.width = image.shape[1]
+            self.curr_signs_image_msg.encoding = encoding
+            self.curr_signs_image_msg.is_bigendian = 0
+            self.curr_signs_image_msg.step = image.shape[1]*image.shape[2]
+
+            data = np.reshape(image, (self.curr_signs_image_msg.height, self.curr_signs_image_msg.step) )
+            data = np.reshape(image, (self.curr_signs_image_msg.height*self.curr_signs_image_msg.step) )
+            data = list(data)
+            self.curr_signs_image_msg.data = data
+            return self.curr_signs_image_msg
+        else:            
+            raise Exception("Error while convering cv image to ros message") 
+            return None
+
     def main(self):
         while not rospy.is_shutdown():
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
@@ -157,20 +182,19 @@ class ArucoDetector():
                 self.debug_topic.publish("aruco_centers: {c}".format(c = aruco_centers))
                 # New line below
                 #____________Publisher__________
-                self.image_pub = rospy.Publisher("image_topic", Image)
-                self.image_aruco_mask = rospy.Publisher("image_topic_2", Image)
-                self.image_aruco_mask_distance = rospy.Publisher("image_topic_3", Image)
+                self.image_pub = rospy.Publisher("image_detecting", Image, queue_size = 20)
+                self.image_aruco_mask = rospy.Publisher("image_arucos_mask", Image, queue_size = 20)
+                self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 20)
+                print("estoy publicando video en tiempo real")
 
-                self.bridge = CvBridge()
-                self.image_pub.publish = self.bridge.cv_to_imgmsg(self.displayed_image_ocv, "bgr8")
-                self.image_aruco_mask.publish = self.bridge.cv_to_imgmsg(self.arucos_mask, "bgr8")
-                self.image_aruco_mask_distance.publish = self.bridge.cv_to_imgmsg(self.arucos_mask_with_distance, "bgr8")           
-                # End of new code
-                cv2.waitKey(1)                
-                # self.displayed_image_ocv = self.image_ocv.copy()
-"""                 cv2.imshow("image", self.displayed_image_ocv)
-                cv2.imshow("aruco mask", self.arucos_mask)
-                cv2.imshow("aruco mask with depth", np.uint8(self.arucos_mask_with_distance)) """
+                self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
+                self.image_pub.publish(self.curr_signs_image_msg)
+
+                self.curr_signs_image_msg_2 = self.cv2_to_imgmsg(self.arucos_mask, encoding = "bgr8")
+                self.image_aruco_mask.publish(self.curr_signs_image_msg_2)
+
+                """ self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.arucos_mask_with_distance, encoding = "bgr8")
+                self.image_aruco_mask_distance.publish(self.curr_signs_image_msg_3) """ 
 
 
 
