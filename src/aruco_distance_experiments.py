@@ -7,7 +7,7 @@ import time
 import cv2
 import sys
 import math
-from std_msgs.msg import String, Int8
+import pandas as pd
 
 class ExperimentHelper():
     def __init__(self, aruco_dict = cv2.aruco.DICT_4X4_50):
@@ -16,7 +16,7 @@ class ExperimentHelper():
         self.arucoDict = cv2.aruco.getPredefinedDictionary(aruco_dict)
         self.arucoParams = cv2.aruco.DetectorParameters()
         self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
-
+        
         # ________ camera atributes initialization ______
         self.zed_camera = sl.Camera()
         self.zed_init_params = sl.InitParameters()
@@ -25,7 +25,7 @@ class ExperimentHelper():
         err = self.zed_camera.open(self.zed_init_params)
         if err != sl.ERROR_CODE.SUCCESS:
             exit(1)
-        rospy.sleep(1.0)
+        time.sleep(1.0)
         self.zed_runtime_parameters = sl.RuntimeParameters()
         self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
         self.zed_runtime_parameters.confidence_threshold = 100
@@ -35,8 +35,8 @@ class ExperimentHelper():
         # TODO: IMPORTANT!!!! DEFINE THE IMAGE SIZE THAT WE WILL BE USING AT URC, SO THAT 
         # VALUES IN EXPERIMENTS CORRESPOND TO THE VALUES AT COMPETITION
         # =========================================================================
-        self.image_size.width = self.image_size.width /2
-        self.image_size.height = self.image_size.height /2
+        self.image_size.width = 640
+        self.image_size.height = 360
         # =========================================================================
 
         self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
@@ -50,7 +50,28 @@ class ExperimentHelper():
         self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
         self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
 
-    def draw_arucos(sel, image, corners):
+        # ______________ experiment data initialization ______________
+        self.experiment_data = { "aruco x center px":[],
+                            "aruco y center px":[],
+                            "aruco z center px":[],
+                            "aruco area px":[],
+                            "aruco top left corner x px":[],
+                            "aruco top left corner y px":[],
+                            "aruco top right corner x px":[],
+                            "aruco top right corner y px":[],
+                            "aruco bottom right corner x px":[],
+                            "aruco bottom right corner y px":[],
+                            "aruco bottom left corner x px":[],
+                            "aruco bottom left corner y px":[],
+                            "aruco x center meters":[],
+                            "aruco y center meters":[],
+                            "aruco z center meters":[],
+                            "aruco rot roll (deg)":[],
+                            "aruco rot pitch (deg)":[],
+                            "aruco rot yaw (deg)":[]
+                            }
+
+    def draw_arucos(self, image, corners):
         # verify *at least* one ArUco marker was detected
         if len(corners) > 0:
 			# loop over the detected ArUCo corners
@@ -104,19 +125,71 @@ class ExperimentHelper():
             z_center = 0.0
         return (float(x_center), float(y_center), float(z_center), float(tag_area))
 
+    def input_is_valid(self, given_input):
+        try:
+            value = eval(given_input)
+            if len(value) == 6:
+                if type(value[0]) is float:
+                    return True
+            return False
+        except:
+            return False
+
     def main(self):
-        user_input = ""    
-        while True:
-            cap = cv2.VideoCapture(0)
-            _, frame = cap.read()
+        user_input = ""            
+        df = pd.read_csv('./experiments_data/experiment_1.csv', index_col=False)
+
+        while True:            
+            print("please give me the current artag pose, using the folloeing format")
+            print("[x_position, y_position, z_position, roll_deg, pitch_deg, yaw_deg]")            
+            user_input = input("POSE:")
+            self.zed_camera.retrieve_image(self.image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size)
+            self.zed_camera.retrieve_image(self.depth_image_zed, sl.VIEW.DEPTH, sl.MEM.CPU, self.image_size)
+            self.zed_camera.retrieve_measure(self.point_cloud, sl.MEASURE.DEPTH, sl.MEM.CPU, self.image_size)
+            self.image_ocv = self.image_zed.get_data()
+            self.image_ocv = self.image_ocv[:,:,:-1]
+            self.depth_image_ocv = self.depth_image_zed.get_data()
+            self.point_cloud_ocv = self.point_cloud.get_data()
+            
+            self.displayed_image_ocv = self.image_ocv.copy()
+            self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
+            self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
+            
             if user_input == "end":
                 break
-            elif user_input == "":
-                pass
+            elif self.input_is_valid(user_input) and self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
+                aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
+                aruco_centers_and_areas = list(map(self.get_aruco_midpoint_and_area, aruco_corners))
+                aruco_pose = eval(user_input)
+
+                if len(aruco_centers_and_areas) > 0:
+                    aruco_corner = aruco_corners[0].reshape((4,2)) # reshape the corners of the first aruco in the image
+                    self.experiment_data["aruco x center px"].append(aruco_centers_and_areas[0][0])
+                    self.experiment_data["aruco y center px"].append(aruco_centers_and_areas[0][1])
+                    self.experiment_data["aruco z center px"].append(aruco_centers_and_areas[0][2])
+                    self.experiment_data["aruco area px"].append(aruco_centers_and_areas[0][3])
+                    self.experiment_data["aruco top left corner x px"].append(aruco_corner[0,0])
+                    self.experiment_data["aruco top left corner y px"].append(aruco_corner[0,1])
+                    self.experiment_data["aruco top right corner x px"].append(aruco_corner[1,0])
+                    self.experiment_data["aruco top right corner y px"].append(aruco_corner[1,1])
+                    self.experiment_data["aruco bottom right corner x px"].append(aruco_corner[2,0])
+                    self.experiment_data["aruco bottom right corner y px"].append(aruco_corner[2,1])
+                    self.experiment_data["aruco bottom left corner x px"].append(aruco_corner[3,0])
+                    self.experiment_data["aruco bottom left corner y px"].append(aruco_corner[3,1])
+                    self.experiment_data["aruco x center meters"].append(aruco_pose[0])
+                    self.experiment_data["aruco y center meters"].append(aruco_pose[1])
+                    self.experiment_data["aruco z center meters"].append(aruco_pose[2])
+                    self.experiment_data["aruco rot roll (deg)"].append(aruco_pose[3])
+                    self.experiment_data["aruco rot pitch (deg)"].append(aruco_pose[4])
+                    self.experiment_data["aruco rot yaw (deg)"].append(aruco_pose[5])
+
+                    self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)
+                    cv2.imshow("image", self.displayed_image_ocv)                
+                    cv2.waitKey(0)
             else:
-            aruco_corners, aruco_ids = self.get_arucos_info_in_image(frame)
-            self.displayed_image_ocv = frame.copy()
-            aruco_centers_and_areas = list(map(self.get_aruco_midpoint, aruco_corners))
+                print("invalid input!")
+        df = df.append(pd.DataFrame(self.experiment_data))
+        df.to_csv('./experiments_data/experiment_1.csv', index=False)
 
 if __name__ == "__main__":
     aruco_detector = ExperimentHelper()
