@@ -32,6 +32,8 @@ import cv2
 import sys
 import math
 from std_msgs.msg import String, Int8
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
 
 class ArucoDetector():
     def __init__(self, aruco_dict = cv2.aruco.DICT_4X4_50):
@@ -153,11 +155,24 @@ class ArucoDetector():
                 self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
                 aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))
                 self.debug_topic.publish("aruco_centers: {c}".format(c = aruco_centers))
-                cv2.imshow("image", self.displayed_image_ocv)
-                cv2.imshow("aruco mask", self.arucos_mask)
-                cv2.imshow("aruco mask with depth", np.uint8(self.arucos_mask_with_distance))
+                # New line below
+                #____________Publisher__________
+                self.image_pub = rospy.Publisher("image_topic", Image)
+                self.image_aruco_mask = rospy.Publisher("image_topic_2", Image)
+                self.image_aruco_mask_distance = rospy.Publisher("image_topic_3", Image)
+
+                self.bridge = CvBridge()
+                self.image_pub.publish = self.bridge.cv_to_imgmsg(self.displayed_image_ocv, "bgr8")
+                self.image_aruco_mask.publish = self.bridge.cv_to_imgmsg(self.arucos_mask, "bgr8")
+                self.image_aruco_mask_distance.publish = self.bridge.cv_to_imgmsg(self.arucos_mask_with_distance, "bgr8")           
+                # End of new code
                 cv2.waitKey(1)                
                 # self.displayed_image_ocv = self.image_ocv.copy()
+"""                 cv2.imshow("image", self.displayed_image_ocv)
+                cv2.imshow("aruco mask", self.arucos_mask)
+                cv2.imshow("aruco mask with depth", np.uint8(self.arucos_mask_with_distance)) """
+
+
 
 if __name__ == "__main__":
     aruco_detector = ArucoDetector()
