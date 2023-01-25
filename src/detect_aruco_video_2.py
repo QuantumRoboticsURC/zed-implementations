@@ -69,7 +69,7 @@ class ArucoDetector():
         self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
         self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
-        self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float32)
+        self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
 
         # ________ ros atributes initialization ______
         self.debug_topic = rospy.Publisher("/debug_print", String, queue_size=1)
@@ -119,7 +119,7 @@ class ArucoDetector():
         print( "one channel mask dtype: {m} ".format(m = type(one_channel_arucos_mask)) ) # TODO: delete this
         self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
         tag_area = one_channel_arucos_mask.sum()
-        if tag_area > 0.0:        
+        if tag_area > 0:        
             print( "arucos mask w distance sum: {m} ".format(m = (self.arucos_mask_with_distance/255.0).sum()) )
             print( "arucos mask w distance sum: {m} ".format(m = one_channel_arucos_mask.sum() ) )
             z_center = (self.arucos_mask_with_distance/255.0).sum()/one_channel_arucos_mask.sum()
@@ -130,7 +130,7 @@ class ArucoDetector():
     def main(self):
         while not rospy.is_shutdown():
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
-            self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float32)
+            self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
             if self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
                 # Retrieve left image
                 self.zed_camera.retrieve_image(self.image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size)
