@@ -38,7 +38,6 @@ class ArucoDetector():
         rospy.init_node("aruco_detector")
 
         # ________ aruco atributes initialization ______
-        #self.arucoDict = cv2.aruco.Dictionary_get(aruco_dict)
         self.arucoDict = cv2.aruco.getPredefinedDictionary(aruco_dict)
         self.arucoParams = cv2.aruco.DetectorParameters()
         self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
@@ -51,7 +50,7 @@ class ArucoDetector():
         err = self.zed_camera.open(self.zed_init_params)
         if err != sl.ERROR_CODE.SUCCESS:
             exit(1)
-        rospy.sleep(2.0)
+        rospy.sleep(1.0)
         self.zed_runtime_parameters = sl.RuntimeParameters()
         self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
         self.zed_runtime_parameters.confidence_threshold = 100
@@ -61,9 +60,9 @@ class ArucoDetector():
         self.image_size.height = self.image_size.height /2
 
         self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
-        # TODO: delete depth_image_zed after debugging
         self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
         self.point_cloud = sl.Mat()
+
         self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
         self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
@@ -102,30 +101,35 @@ class ArucoDetector():
 
     def get_arucos_info_in_image(self, image):
         # detect ArUco markers in the input frame
-        (corners, ids, rejected) = self.arucoDetector.detectMarkers(image)
-        # self.debug_topic.publish("aruco corners : {c}, aruco corners dtype {t}".format(c = corners, t = type(corners)))
+        (corners, ids, rejected) = self.arucoDetector.detectMarkers(image)    
         return (corners, ids)
 
     def midpoint_equation(self, p1, p2):
         return ( (p1[0]+p2[0])/2, (p1[1]+p2[1])/2 )
 
     def get_aruco_midpoint(self, rectangle_corners):
+        """ function that returns the x,y,z cordinates of the aruco's midpoint """
+        # ______________ initializing and formating data that will be used ______________
         self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
         rectangle_corners_for_x_y = rectangle_corners.reshape((4,2))
         rectangle_corners_for_mask = np.int32(rectangle_corners.reshape((1,4,2)))
+        # ______________ getting the x,y cordinates of the aruco tag (in pixels) ______________
         x_center, y_center = self.midpoint_equation(rectangle_corners_for_x_y[0,:], rectangle_corners_for_x_y[2,:])
-        cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))
-        one_channel_arucos_mask = cv2.cvtColor(self.arucos_mask, cv2.COLOR_BGR2GRAY)  /255.0
-        print( "one channel mask dtype: {m} ".format(m = type(one_channel_arucos_mask)) ) # TODO: delete this
+        # ______________ getting the z cordinate of the aruco tag (in point cloud units) ______________
+        # step one - we filter the point cloud using a mask with only the area of the aruco tag
+        cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))  
+        one_channel_arucos_mask = cv2.cvtColor(self.arucos_mask, cv2.COLOR_BGR2GRAY)  /255.0        
         self.arucos_mask_with_distance = np.nan_to_num(self.point_cloud_ocv)*one_channel_arucos_mask
+        # step two - we get the mean point cloud value on the aruco tag area, to use it as z value
         tag_area = one_channel_arucos_mask.sum()
         if tag_area > 0:        
-            print( "arucos mask w distance sum: {m} ".format(m = (self.arucos_mask_with_distance)) )
-            print( "arucos mask w distance sum: {m} ".format(m = one_channel_arucos_mask.sum() ) )
             z_center = (self.arucos_mask_with_distance/255.0).sum()/one_channel_arucos_mask.sum()
         else:
             z_center = 0.0
         return (float(x_center), float(y_center), float(z_center) )
+
+    def transform_aruco_midpoint_to_metric_system(aruco_midpoint):
+        pass
 
     def main(self):
         while not rospy.is_shutdown():
