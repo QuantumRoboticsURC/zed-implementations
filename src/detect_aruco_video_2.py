@@ -117,7 +117,7 @@ class ArucoDetector():
         cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))
         one_channel_arucos_mask = cv2.cvtColor(self.arucos_mask, cv2.COLOR_BGR2GRAY)  /255.0
         print( "one channel mask dtype: {m} ".format(m = type(one_channel_arucos_mask)) ) # TODO: delete this
-        self.arucos_mask_with_distance = self.point_cloud_ocv*one_channel_arucos_mask
+        self.arucos_mask_with_distance = np.nan_to_num(self.point_cloud_ocv)*one_channel_arucos_mask
         tag_area = one_channel_arucos_mask.sum()
         if tag_area > 0:        
             print( "arucos mask w distance sum: {m} ".format(m = (self.arucos_mask_with_distance)) )
