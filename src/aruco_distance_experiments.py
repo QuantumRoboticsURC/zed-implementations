@@ -117,13 +117,14 @@ class ExperimentHelper():
         cv2.fillPoly(self.arucos_mask, pts = rectangle_corners_for_mask, color=(255,255,255))  
         one_channel_arucos_mask = cv2.cvtColor(self.arucos_mask, cv2.COLOR_BGR2GRAY)  /255.0        
         self.arucos_mask_with_distance = np.nan_to_num(self.point_cloud_ocv)*one_channel_arucos_mask
-        # step two - we get the mean point cloud value on the aruco tag area, to use it as z value
+        # step two - we get the meax_centern point cloud value on the aruco tag area, to use it as z value
         tag_area = one_channel_arucos_mask.sum()
         if tag_area > 0:        
             z_center = (self.arucos_mask_with_distance/255.0).sum()/tag_area
         else:
             z_center = 0.0
-        return (float(x_center), float(y_center), float(z_center), float(tag_area))
+        #return (float(x_center), float(y_center), float(z_center), float(tag_area))
+        return (float(z_center), float(-x_center), float(-y_center), float(tag_area))
 
     def input_is_valid(self, given_input):
         try:
@@ -186,6 +187,7 @@ class ExperimentHelper():
                     self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)
                     cv2.imshow("image", self.displayed_image_ocv)                
                     cv2.waitKey(0)
+                    cv2.destroyAllWindows()
             else:
                 print("invalid input!")
         df = df.append(pd.DataFrame(self.experiment_data))

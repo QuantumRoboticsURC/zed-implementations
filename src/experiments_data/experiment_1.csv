@@ -1,1 +1,4 @@
 aruco x center px,aruco y center px,aruco z center px,aruco area px,aruco top left corner x px,aruco top left corner y px,aruco top right corner x px,aruco top right corner y px,aruco bottom right corner x px,aruco bottom right corner y px,aruco bottom left corner x px,aruco bottom left corner y px,aruco x center meters,aruco y center meters,aruco z center meters,aruco rot roll (deg),aruco rot pitch (deg),aruco rot yaw (deg)
+10.028721572356329,-319.5,-26.0,380.0,310.0,17.0,328.0,17.0,329.0,35.0,310.0,36.0,2.678,0.0,1.35,0.0,0.0,0.0
+10.145496343168679,-320.0,-81.5,390.0,311.0,72.0,330.0,73.0,329.0,91.0,310.0,91.0,2.678,0.0,0.805,0.0,0.0,0.0
+10.277144170598849,-213.5,-84.0,381.0,204.0,75.0,222.0,74.0,223.0,93.0,205.0,94.0,2.678,1.071,0.805,0.0,0.0,0.0
