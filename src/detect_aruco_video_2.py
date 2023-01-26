@@ -174,8 +174,7 @@ class ArucoDetector():
                 self.depth_image_ocv = self.depth_image_zed.get_data()
                 self.point_cloud_ocv = self.point_cloud.get_data()
 
-                aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
-                self.debug_topic.publish("aruco corners : {c}, aruco corners dtype {t}".format(c = aruco_corners, t = type(aruco_corners)))
+                aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)            
                 self.displayed_image_ocv = self.image_ocv.copy()
                 self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
                 aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))
