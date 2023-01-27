@@ -58,8 +58,8 @@ class ArucoDetector():
         self.zed_runtime_parameters.confidence_threshold = 100
         self.zed_runtime_parameters.textureness_confidence_threshold = 100
         self.image_size = self.zed_camera.get_camera_information().camera_resolution
-        self.image_size.width = self.image_size.width /2
-        self.image_size.height = self.image_size.height /2
+        self.image_size.width = 640
+        self.image_size.height = 360
 
         self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
         self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
@@ -72,9 +72,11 @@ class ArucoDetector():
         self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
         self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
 
-        # ________ ros atributes initialization ______
-        self.debug_topic = rospy.Publisher("/debug_print", String, queue_size=1)
+        # ________ ros atributes initialization ______        
         self.aruco_distances_publisher = rospy.Publisher("/aruco_distances", String, queue_size = 1)
+        self.image_pub = rospy.Publisher("/image_detecting", Image, queue_size = 20)
+        self.image_aruco_mask = rospy.Publisher("/image_arucos_mask", Image, queue_size = 20)
+        self.image_aruco_mask_distance = rospy.Publisher(/"arucos_mask_with_distance", Image, queue_size = 20)
 
         #__________ image ______________
         self.curr_signs_image_msg = Image()
@@ -133,11 +135,14 @@ class ArucoDetector():
         if tag_area > 0:        
             z_center = (self.arucos_mask_with_distance/255.0).sum()/tag_area
         else:
-            z_center = 0.0
-        return (float(x_center), float(y_center), float(z_center) )
+            z_center = 0.0        
+        # on the next line the minus signs allow us to transform the camera reference frame to a reference frame that
+        # is parallel to the robots reference frame 
+        return (float(z_center), float(-x_center), float(-y_center)) 
 
     def transform_aruco_midpoint_to_metric_system(aruco_midpoint):
-        pass
+        x = 0.243*(aruco_midpoint[0]) + 0.201
+        return (x, aruco_midpoint[1], aruco_midpoint[2])
 
     def cv2_to_imgmsg(self, image, encoding = "bgr8"):
         #print("cv2_to_imgmsg image shape is:" + str(image.shape))
@@ -174,17 +179,10 @@ class ArucoDetector():
                 self.depth_image_ocv = self.depth_image_zed.get_data()
                 self.point_cloud_ocv = self.point_cloud.get_data()
 
-                aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)            
+                aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
                 self.displayed_image_ocv = self.image_ocv.copy()
                 self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
-                aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))
-                self.debug_topic.publish("aruco_centers: {c}".format(c = aruco_centers))
-                # New line below
-                #____________Publisher__________
-                self.image_pub = rospy.Publisher("image_detecting", Image, queue_size = 20)
-                self.image_aruco_mask = rospy.Publisher("image_arucos_mask", Image, queue_size = 20)
-                self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 20)
-                print("estoy publicando video en tiempo real")
+                aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))                
 
                 self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
                 self.image_pub.publish(self.curr_signs_image_msg)
@@ -194,8 +192,6 @@ class ArucoDetector():
 
                 """ self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.arucos_mask_with_distance, encoding = "bgr8")
                 self.image_aruco_mask_distance.publish(self.curr_signs_image_msg_3) """ 
-
-
 
 if __name__ == "__main__":
     aruco_detector = ArucoDetector()
