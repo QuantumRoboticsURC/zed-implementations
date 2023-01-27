@@ -33,6 +33,7 @@ import sys
 import math
 from std_msgs.msg import String, Int8, Header
 from sensor_msgs.msg import Image
+from geometry_msgs.msg import Point
 
 
 class ArucoDetector():
@@ -73,10 +74,10 @@ class ArucoDetector():
         self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
 
         # ________ ros atributes initialization ______        
-        self.aruco_distances_publisher = rospy.Publisher("/aruco_distances", String, queue_size = 1)
-        self.image_pub = rospy.Publisher("/image_detecting", Image, queue_size = 20)
-        self.image_aruco_mask = rospy.Publisher("/image_arucos_mask", Image, queue_size = 20)
-        self.image_aruco_mask_distance = rospy.Publisher(/"arucos_mask_with_distance", Image, queue_size = 20)
+        self.closest_aruco_position_publisher = rospy.Publisher("/closest_aruco_distance", Point, queue_size = 1)
+        self.image_pub = rospy.Publisher("/image_detecting", Image, queue_size = 1)
+        self.image_aruco_mask = rospy.Publisher("/image_arucos_mask", Image, queue_size = 1)
+        self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 1)        
 
         #__________ image ______________
         self.curr_signs_image_msg = Image()
@@ -140,9 +141,12 @@ class ArucoDetector():
         # is parallel to the robots reference frame 
         return (float(z_center), float(-x_center), float(-y_center)) 
 
-    def transform_aruco_midpoint_to_metric_system(aruco_midpoint):
-        x = 0.243*(aruco_midpoint[0]) + 0.201
-        return (x, aruco_midpoint[1], aruco_midpoint[2])
+    def transform_aruco_midpoint_to_metric_system(aruco_midpoint):        
+        x = aruco_midpoint[0]
+        x = (0.256)*(aruco_midpoint[0]) + 0.0816
+        #x_cord = 5.73 - (0.0133*x) + (1.8E-05)*(x**2) - (1.18E-08)*(x**3) + (3.63E-12)*(x**4) - (4.14E-16)*(x**5)
+        # TODO implement the logic to transform y and x cords
+        return (x_cord, aruco_midpoint[1], aruco_midpoint[2])
 
     def cv2_to_imgmsg(self, image, encoding = "bgr8"):
         #print("cv2_to_imgmsg image shape is:" + str(image.shape))
@@ -163,6 +167,17 @@ class ArucoDetector():
             raise Exception("Error while convering cv image to ros message") 
             return None
 
+    def get_closest_point(self, point_list):
+        # TODO - implement this functions logic
+        return point_list[0]
+
+    def tuple_position_2_ros_position(self, tuple_point):
+        ros_point = Point()
+        ros_point.x = tuple_point[0]
+        ros_point.y = tuple_point[1]
+        ros_point.z = tuple_point[2]
+        return ros_point
+
     def main(self):
         while not rospy.is_shutdown():
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
@@ -181,12 +196,14 @@ class ArucoDetector():
 
                 aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
                 self.displayed_image_ocv = self.image_ocv.copy()
-                self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
-                aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))                
+                if len(aruco_corners) > 0:
+                    self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
+                    aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))                
+                    closest_aruco_position = self.get_closest_point(aruco_centers)                
+                    self.closest_aruco_position_publisher.publish( self.tuple_position_2_ros_position(closest_aruco_position))
 
                 self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
                 self.image_pub.publish(self.curr_signs_image_msg)
-
                 self.curr_signs_image_msg_2 = self.cv2_to_imgmsg(self.arucos_mask, encoding = "bgr8")
                 self.image_aruco_mask.publish(self.curr_signs_image_msg_2)
 
