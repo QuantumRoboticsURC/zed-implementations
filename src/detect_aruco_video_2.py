@@ -142,11 +142,14 @@ class ArucoDetector():
         return (float(z_center), float(-x_center), float(-y_center)) 
 
     def transform_aruco_midpoint_to_metric_system(aruco_midpoint):        
-        x = aruco_midpoint[0]
-        x = (0.256)*(aruco_midpoint[0]) + 0.0816
-        #x_cord = 5.73 - (0.0133*x) + (1.8E-05)*(x**2) - (1.18E-08)*(x**3) + (3.63E-12)*(x**4) - (4.14E-16)*(x**5)
-        # TODO implement the logic to transform y and x cords
-        return (x_cord, aruco_midpoint[1], aruco_midpoint[2])
+        x_m = (0.25738586)*(aruco_midpoint[0]) + 0.05862189
+
+        x_px_times_y_px = aruco_midpoint[0]*aruco_midpoint[1]
+        y_m = 0.29283879*aruco_midpoint[0] + 0.00050015*aruco_midpoint[1] + 0.00094536*x_px_times_y_px + 0.23096646
+
+        x_px_times_z_px = aruco_midpoint[0]*aruco_midpoint[2]
+        z_m = 0.16725805*aruco_midpoint[0] - 0.00069012*aruco_midpoint[2] + 0.00098029*x_px_times_z_px - 0.04520938         
+        return (x_m, y_m, z_m)
 
     def cv2_to_imgmsg(self, image, encoding = "bgr8"):
         #print("cv2_to_imgmsg image shape is:" + str(image.shape))
