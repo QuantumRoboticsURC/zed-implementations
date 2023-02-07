@@ -141,7 +141,7 @@ class ArucoDetector():
         # is parallel to the robots reference frame 
         return (float(z_center), float(-x_center), float(-y_center)) 
 
-    def transform_aruco_midpoint_to_metric_system(aruco_midpoint):        
+    def transform_aruco_midpoint_to_metric_system(self, aruco_midpoint):        
         x_m = (0.25738586)*(aruco_midpoint[0]) + 0.05862189
 
         x_px_times_y_px = aruco_midpoint[0]*aruco_midpoint[1]
@@ -202,7 +202,8 @@ class ArucoDetector():
                 if len(aruco_corners) > 0:
                     self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
                     aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))                
-                    closest_aruco_position = self.get_closest_point(aruco_centers)                
+                    closest_aruco_position = self.get_closest_point(aruco_centers)
+                    closest_aruco_position = self.transform_aruco_midpoint_to_metric_system(closest_aruco_position)                
                     self.closest_aruco_position_publisher.publish( self.tuple_position_2_ros_position(closest_aruco_position))
 
                 self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
