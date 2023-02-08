@@ -172,7 +172,17 @@ class ArucoDetector():
 
     def get_closest_point(self, point_list):
         # TODO - implement this functions logic
-        return point_list[0]
+        # return point_list[0]
+
+        for point in point_list:
+            plus_one = point_list.index(point) + 1
+            if point < point_list[plus_one]:
+                closest = point
+            else:
+                closest = point_list[plus_one] 
+
+        return closest
+
 
     def tuple_position_2_ros_position(self, tuple_point):
         ros_point = Point()
@@ -203,6 +213,7 @@ class ArucoDetector():
                     self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
                     aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))                
                     closest_aruco_position = self.get_closest_point(aruco_centers)
+                    print("Closest aruco ", closest_aruco_position)
                     closest_aruco_position = self.transform_aruco_midpoint_to_metric_system(closest_aruco_position)                
                     self.closest_aruco_position_publisher.publish( self.tuple_position_2_ros_position(closest_aruco_position))
 
