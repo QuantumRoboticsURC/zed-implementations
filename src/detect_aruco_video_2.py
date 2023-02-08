@@ -141,7 +141,8 @@ class ArucoDetector():
         # is parallel to the robots reference frame 
         return (float(z_center), float(-x_center), float(-y_center)) 
 
-    def transform_aruco_midpoint_to_metric_system(self, aruco_midpoint):        
+    def transform_aruco_midpoint_to_metric_system(self, aruco_midpoint): 
+   
         x_m = (0.25738586)*(aruco_midpoint[0]) + 0.05862189
 
         x_px_times_y_px = aruco_midpoint[0]*aruco_midpoint[1]
@@ -168,20 +169,19 @@ class ArucoDetector():
             return self.curr_signs_image_msg
         else:            
             raise Exception("Error while convering cv image to ros message") 
-            return None
+            
+    def euclidean_distance(self, tuple):
+        return math.sqrt(tuple[0]**2 + tuple[1]**2 + tuple[2]**2)
 
     def get_closest_point(self, point_list):
         # TODO - implement this functions logic
-        # return point_list[0]
+        euclidean_distances = list(map(self.euclidean_distance, point_list))
+        positions_and_euclidean_distances = list(zip(point_list, euclidean_distances))
+        positions_and_euclidean_distances.sort(key = lambda x:x[1])
 
-        for point in point_list:
-            plus_one = point_list.index(point) + 1
-            if point < point_list[plus_one]:
-                closest = point
-            else:
-                closest = point_list[plus_one] 
+        return positions_and_euclidean_distances[0][0]
 
-        return closest
+        
 
 
     def tuple_position_2_ros_position(self, tuple_point):
@@ -211,10 +211,12 @@ class ArucoDetector():
                 self.displayed_image_ocv = self.image_ocv.copy()
                 if len(aruco_corners) > 0:
                     self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
-                    aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))                
-                    closest_aruco_position = self.get_closest_point(aruco_centers)
-                    print("Closest aruco ", closest_aruco_position)
-                    closest_aruco_position = self.transform_aruco_midpoint_to_metric_system(closest_aruco_position)                
+                    aruco_centers = list(map(self.get_aruco_midpoint, aruco_corners))
+
+                    centers_meters = list(map(self.transform_aruco_midpoint_to_metric_system, aruco_centers))           
+                    closest_aruco_position = self.get_closest_point(centers_meters)
+
+                    #closest_aruco_position = self.transform_aruco_midpoint_to_metric_system(closest_aruco_position)                
                     self.closest_aruco_position_publisher.publish( self.tuple_position_2_ros_position(closest_aruco_position))
 
                 self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
