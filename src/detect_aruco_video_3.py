@@ -43,10 +43,10 @@ class ArucoDetector():
         self.arucoDict = cv2.aruco.getPredefinedDictionary(aruco_dict)
         self.arucoParams = cv2.aruco.DetectorParameters()
         self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
+        
+        self.flag = rospy.get_param('/detect_aruco_video2/simulation')
 
-        self.argument = rospy.get_param('/detect_aruco_video2/simulation')
-
-        if self.argument == "False":
+        if self.flag == "False":
 
             # ________ camera atributes initialization ______
             self.zed_camera = sl.Camera()
@@ -61,21 +61,23 @@ class ArucoDetector():
             self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
             self.zed_runtime_parameters.confidence_threshold = 100
             self.zed_runtime_parameters.textureness_confidence_threshold = 100
-            self.image_size = self.zed_camera.get_camera_information().camera_resolution
+            self.image_size = self.zed_camera.get_camera_information().camera_resolution  
             self.image_size.width = 640
             self.image_size.height = 360 
 
             self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
             self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
             self.point_cloud = sl.Mat()
-            self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8) # TODO copy this line and the one below, so they are active when sim flag is activated 
+            self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
             self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+       
         else: 
-            self.camera = cv2.VideoCapture(0)
-            # TODO create a dummy class called DummyImage that has only two attrs height and width
-            self.image_size.width = 640
-            self.image_size.height = 360
+            self.image_size = DummyImage()
+            self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8) # They are active when sim flag is activated 
+            self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
 
+
+        
         self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
         self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
@@ -93,9 +95,11 @@ class ArucoDetector():
         self.curr_signs_image_msg_2 = Image()
         self.curr_signs_image_msg_3 = Image()
 
-    class DummyImage(object):
-        width = 640
-        height = 360
+        class DummyImage():
+            width = 640
+            height = 360
+
+
 
     def draw_arucos(sel, image, corners):
         # verify *at least* one ArUco marker was detected
@@ -215,10 +219,19 @@ class ArucoDetector():
                 self.zed_camera.retrieve_image(self.depth_image_zed, sl.VIEW.DEPTH, sl.MEM.CPU, self.image_size)
                 # Retrieve colored point cloud. Point cloud is aligned on the left image.
                 self.zed_camera.retrieve_measure(self.point_cloud, sl.MEASURE.DEPTH, sl.MEM.CPU, self.image_size)
-                self.image_ocv = self.image_zed.get_data() # TODO when sim flag is active change this so that image is retrieved using cv2
-                self.image_ocv = self.image_ocv[:,:,:-1] # TODO when sim flag is active this should be deleted
-                self.depth_image_ocv = self.depth_image_zed.get_data() # TODO: when sim flag is active this var will be harcoded to numpy array with a val of 255.0 on all pixels  
-                self.point_cloud_ocv = self.point_cloud.get_data() # TODO: when sim flag is active this var will be harcoded to numpy array with a val of 255.0 on all pixels
+
+                if self.flag == "False":
+                    self.image_ocv = self.image_zed.get_data() 
+                    self.image_ocv = self.image_ocv[:,:,:-1] 
+                    self.depth_image_ocv = self.depth_image_zed.get_data()   
+                    self.point_cloud_ocv = self.point_cloud.get_data() 
+                else:
+                    
+                    self.camera = cv2.VideoCapture(0) # image is retrieved using cv2
+                    _, image = self.camera.read()
+                    self.image_ocv = image
+                    self.depth_image_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels  
+                    self.point_cloud_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels
 
                 aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
                 self.displayed_image_ocv = self.image_ocv.copy()
