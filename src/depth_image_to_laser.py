@@ -3,12 +3,23 @@
 import time
 import numpy as np
 import cv2
+from time import process_time
 
 gray_img = cv2.imread('./images/grayscale_img.jpeg', cv2.IMREAD_GRAYSCALE)
 
 
+def np_image(width, height):
+    img = np.ones((width, height), dtype=np.uint8)
+
+    img[0:] = 0.0
+    img[1:] = 255.0/2
+    img[2:] = 255.0
+
+    return img
+
+
 def depth_image_to_laser_scan(gray_img, n):
-    
+    t1_start = process_time() 
     height = gray_img.shape[0]
     width = gray_img.shape[1]
     
@@ -28,22 +39,32 @@ def depth_image_to_laser_scan(gray_img, n):
         
         # Add the average value to the laser scan data
         laser_scan[i] = avg
-    
+
+    t1_stop = process_time()
+
+    print("Elapsed time:", t1_stop, t1_start) 
+    print("Elapsed time during the whole program in seconds:", t1_stop-t1_start),
+
     return laser_scan
 
 
 def get_smallest_values_per_column(gray_img):
     
-    height, width = gray_img.shape
-    smallest_values = np.zeros((height, width))
+    height = gray_img.shape[0]
+    width = gray_img.shape[1]
+    smallest_values = np.zeros((width, ))
 
     for x in range(width):
         column = gray_img[:, x]
-        sorted_column = np.sort(column)
-        smallest_values[:, x] = sorted_column[:height]
+        smallest_values[x] = np.min(column)
 
     return smallest_values
 
 if __name__ == "__main__":
-    print("resultado\n", depth_image_to_laser_scan(gray_img, 1))
-    print("smallest values \n", get_smallest_values_per_column(gray_img))
+    img_prueba = np_image(5,10)
+    print("resultado\n", depth_image_to_laser_scan(img_prueba, 1))
+    
+    # print("smallest values \n", get_smallest_values_per_column(img_prueba))
+    # cv2.imshow("image", img_prueba)
+    # cv2.waitKey(0)
+    
