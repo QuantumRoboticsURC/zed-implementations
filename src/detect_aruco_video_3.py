@@ -44,7 +44,7 @@ class ArucoDetector():
         self.arucoParams = cv2.aruco.DetectorParameters()
         self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
         
-        self.flag = rospy.get_param('/detect_aruco_video2/simulation')
+        self.flag = rospy.get_param('/detect_aruco_video_3/simulation')
 
         if self.flag == "False":
 
@@ -68,14 +68,11 @@ class ArucoDetector():
             self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
             self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
             self.point_cloud = sl.Mat()
-            self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
             self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
        
         else: 
             self.image_size = DummyImage()
-            self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8) # They are active when sim flag is activated 
             self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
-
 
         
         self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
@@ -88,7 +85,10 @@ class ArucoDetector():
         self.closest_aruco_position_publisher = rospy.Publisher("/closest_aruco_distance", Point, queue_size = 1)
         self.image_pub = rospy.Publisher("/image_detecting", Image, queue_size = 1)
         self.image_aruco_mask = rospy.Publisher("/image_arucos_mask", Image, queue_size = 1)
-        self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 1)        
+        self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 1) 
+        # ________ ros subscriber _________________
+        self.img_color_compressed = rospy.Subscriber("/kinect/color/image_raw/compressed",Image, self.callback_image_compressed)  
+        self.img_depth = rospy.Subscriber("/kinect/depth/image_raw",Image, self.callback_image_depth)     
 
         #__________ image ______________
         self.curr_signs_image_msg = Image()
@@ -99,7 +99,11 @@ class ArucoDetector():
             width = 640
             height = 360
 
+    def callback_image_compressed(self, img):
+        self.img = img
 
+    def callback_image_depth(self, img):
+        self.img = img
 
     def draw_arucos(sel, image, corners):
         # verify *at least* one ArUco marker was detected
@@ -227,11 +231,13 @@ class ArucoDetector():
                     self.point_cloud_ocv = self.point_cloud.get_data() 
                 else:
                     
-                    self.camera = cv2.VideoCapture(0) # image is retrieved using cv2
+                    self.camera = cv2.VideoCapture(0) # image is retrieved using cv2       
                     _, image = self.camera.read()
                     self.image_ocv = image
                     self.depth_image_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels  
                     self.point_cloud_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels
+                    self.depth_img = self.cv2_to_imgmsg(self.img_depth, encoding = "bgr8") 
+                    self.color_compressed_img = self.cv2_to_imgmsg(self.img_color_compressed, encoding = "bgr8") 
 
                 aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
                 self.displayed_image_ocv = self.image_ocv.copy()
