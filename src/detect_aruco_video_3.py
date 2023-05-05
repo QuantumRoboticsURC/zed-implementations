@@ -189,6 +189,17 @@ class ArucoDetector():
             return self.curr_signs_image_msg
         else:            
             raise Exception("Error while convering cv image to ros message") 
+
+
+    def imgmsg_to_cv2(self, ros_image):
+        if ros_image.encoding == "bgr8" and ros_image.is_bigendian == 0:
+            cv_img = np.array(list(ros_image.data), dtype= np.uint8)
+            cv_img = np.reshape(cv_img, (ros_image.height, ros_image.step))
+            cv_img = np.reshape(cv_img, (ros_image.height, ros_image.width, int(ros_image.step/ros_image.width) ) )
+        else:
+            cv_img = None
+            raise Exception("Error while convering ros image message to a cv image")                  
+        return cv_img
             
     def euclidean_distance(self, tuple):
         return math.sqrt(tuple[0]**2 + tuple[1]**2 + tuple[2]**2)
@@ -230,14 +241,13 @@ class ArucoDetector():
                     self.depth_image_ocv = self.depth_image_zed.get_data()   
                     self.point_cloud_ocv = self.point_cloud.get_data() 
                 else:
-                    
-                    self.camera = cv2.VideoCapture(0) # image is retrieved using cv2       
-                    _, image = self.camera.read()
-                    self.image_ocv = image
+                        
+                    self.image_ocv = self.imgmsg_to_cv2(self.img_color_compressed) 
+                    self.point_cloud_ocv = self.imgmsg_to_cv2(self.img_depth)
+
                     self.depth_image_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels  
-                    self.point_cloud_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels
-                    self.depth_img = self.cv2_to_imgmsg(self.img_depth, encoding = "bgr8") 
-                    self.color_compressed_img = self.cv2_to_imgmsg(self.img_color_compressed, encoding = "bgr8") 
+                    # self.point_cloud_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels 
+
 
                 aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
                 self.displayed_image_ocv = self.image_ocv.copy()
