@@ -23,7 +23,7 @@ Notes:
 * Despite the code adds 0.00001 theorically, it's not exact.
 """
 import rospy
-import pyzed.sl as sl
+# import pyzed.sl as sl
 import numpy as np
 import argparse
 import time
@@ -47,28 +47,29 @@ class ArucoDetector():
         self.flag = rospy.get_param('/detect_aruco_video_3/simulation')
 
         if self.flag == "False":
+            pass
 
-            # ________ camera atributes initialization ______
-            self.zed_camera = sl.Camera()
-            self.zed_init_params = sl.InitParameters()
-            self.zed_init_params.depth_mode = sl.DEPTH_MODE.ULTRA  # Use PERFORMANCE depth mode
-            self.zed_init_params.camera_resolution = sl.RESOLUTION.HD720
-            err = self.zed_camera.open(self.zed_init_params)
-            if err != sl.ERROR_CODE.SUCCESS:
-                exit(1)
-            rospy.sleep(1.0)
-            self.zed_runtime_parameters = sl.RuntimeParameters()
-            self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
-            self.zed_runtime_parameters.confidence_threshold = 100
-            self.zed_runtime_parameters.textureness_confidence_threshold = 100
-            self.image_size = self.zed_camera.get_camera_information().camera_resolution  
-            self.image_size.width = 640
-            self.image_size.height = 360 
+            # # ________ camera atributes initialization ______
+            # self.zed_camera = sl.Camera()
+            # self.zed_init_params = sl.InitParameters()
+            # self.zed_init_params.depth_mode = sl.DEPTH_MODE.ULTRA  # Use PERFORMANCE depth mode
+            # self.zed_init_params.camera_resolution = sl.RESOLUTION.HD720
+            # err = self.zed_camera.open(self.zed_init_params)
+            # if err != sl.ERROR_CODE.SUCCESS:
+            #     exit(1)
+            # rospy.sleep(1.0)
+            # self.zed_runtime_parameters = sl.RuntimeParameters()
+            # self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
+            # self.zed_runtime_parameters.confidence_threshold = 100
+            # self.zed_runtime_parameters.textureness_confidence_threshold = 100
+            # self.image_size = self.zed_camera.get_camera_information().camera_resolution  
+            # self.image_size.width = 640
+            # self.image_size.height = 360 
 
-            self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
-            self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
-            self.point_cloud = sl.Mat()
-            self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+            # self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
+            # self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
+            # self.point_cloud = sl.Mat()
+            # self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
        
         else: 
             self.image_size = DummyImage()
