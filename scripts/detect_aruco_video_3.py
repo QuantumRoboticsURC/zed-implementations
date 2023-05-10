@@ -6,9 +6,8 @@
 	José Ángel del Ángel
     joseangeldelangel10@gmail.com
 
-Modified (15/12/2022): 
-		José Ángel del Ángel and Erika García 16/12/2022 Aruco detection code cleanup 
-		José Ángel del Ángel 16/12/2022 Aruco mask with distance added
+Modified (26/04/2023): 
+		Erika García Sánchez started script modification to work in sim
 
 Code description:
 TODO - update code description and notes 
@@ -44,30 +43,42 @@ class ArucoDetector():
         self.arucoDict = cv2.aruco.getPredefinedDictionary(aruco_dict)
         self.arucoParams = cv2.aruco.DetectorParameters()
         self.arucoDetector = cv2.aruco.ArucoDetector(self.arucoDict, self.arucoParams)
+        
+        self.flag = rospy.get_param('/detect_aruco_video2/simulation')
 
-        # ________ camera atributes initialization ______
-        self.zed_camera = sl.Camera()
-        self.zed_init_params = sl.InitParameters()
-        self.zed_init_params.depth_mode = sl.DEPTH_MODE.ULTRA  # Use PERFORMANCE depth mode
-        self.zed_init_params.camera_resolution = sl.RESOLUTION.HD720
-        err = self.zed_camera.open(self.zed_init_params)
-        if err != sl.ERROR_CODE.SUCCESS:
-            exit(1)
-        rospy.sleep(1.0)
-        self.zed_runtime_parameters = sl.RuntimeParameters()
-        self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
-        self.zed_runtime_parameters.confidence_threshold = 100
-        self.zed_runtime_parameters.textureness_confidence_threshold = 100
-        self.image_size = self.zed_camera.get_camera_information().camera_resolution
-        self.image_size.width = 640
-        self.image_size.height = 360
+        if self.flag == "False":
 
-        self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
-        self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
-        self.point_cloud = sl.Mat()
+            # ________ camera atributes initialization ______
+            self.zed_camera = sl.Camera()
+            self.zed_init_params = sl.InitParameters()
+            self.zed_init_params.depth_mode = sl.DEPTH_MODE.ULTRA  # Use PERFORMANCE depth mode
+            self.zed_init_params.camera_resolution = sl.RESOLUTION.HD720
+            err = self.zed_camera.open(self.zed_init_params)
+            if err != sl.ERROR_CODE.SUCCESS:
+                exit(1)
+            rospy.sleep(1.0)
+            self.zed_runtime_parameters = sl.RuntimeParameters()
+            self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
+            self.zed_runtime_parameters.confidence_threshold = 100
+            self.zed_runtime_parameters.textureness_confidence_threshold = 100
+            self.image_size = self.zed_camera.get_camera_information().camera_resolution  
+            self.image_size.width = 640
+            self.image_size.height = 360 
 
+            self.image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
+            self.depth_image_zed = sl.Mat(self.image_size.width, self.image_size.height, sl.MAT_TYPE.U8_C4)
+            self.point_cloud = sl.Mat()
+            self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
+            self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+       
+        else: 
+            self.image_size = DummyImage()
+            self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8) # They are active when sim flag is activated 
+            self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
+
+
+        
         self.imge_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
-        self.depth_image_zed_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.point_cloud_ocv = np.zeros((self.image_size.height, self.image_size.width), dtype=np.uint8)
         self.displayed_image_ocv = np.zeros((self.image_size.height, self.image_size.width, 3), dtype=np.uint8)
         self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
@@ -84,7 +95,10 @@ class ArucoDetector():
         self.curr_signs_image_msg_2 = Image()
         self.curr_signs_image_msg_3 = Image()
 
-        self.square_filter_trh = 20
+        class DummyImage():
+            width = 640
+            height = 360
+
 
 
     def draw_arucos(sel, image, corners):
@@ -117,10 +131,10 @@ class ArucoDetector():
         (corners, ids, rejected) = self.arucoDetector.detectMarkers(image)    
         return (corners, ids)
 
-    def midpoint_equation(self, p1, p2): # TODO change to 2 equation model 
+    def midpoint_equation(self, p1, p2):
         return ( (p1[0]+p2[0])/2, (p1[1]+p2[1])/2 )
 
-    def get_aruco_midpoint(self, rectangle_corners):        
+    def get_aruco_midpoint(self, rectangle_corners):
         """ function that returns the x,y,z cordinates of the aruco's midpoint """
         # ______________ initializing and formating data that will be used ______________
         self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.uint8)
@@ -193,76 +207,11 @@ class ArucoDetector():
         ros_point.z = tuple_point[2]
         return ros_point
 
-    def filters (self, arucos_list):
-        new_arcuso_list = []
-        
-        # verify *at least* one ArUco marker was detected
-        if len(arucos_list) > 0:
-			# loop over the detected ArUCo corners
-            for aruco in arucos_list:
-                corners = aruco.reshape((4, 2))
-                (topLeft, topRight, bottomRight, bottomLeft) = corners
-
-				# convert each of the (x, y)-coordinate pairs to integers
-                topRight = (int(topRight[0]), int(topRight[1]))
-                bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
-                bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
-                topLeft = (int(topLeft[0]), int(topLeft[1]))
-
-                ############# square filter ##############
-                #if self.square_filter(topRight, bottomRight, bottomLeft, topLeft):
-                if self.twenty_cm_len_filter(corners):
-                    new_arcuso_list.append(aruco)
-
-            return tuple(new_arcuso_list)
-        return arucos_list
-
-    def transform_aruco_corners_to_metric_system(self, corners):                
-        corners_in_metric_system = corners.copy()        
-        aruco_depth_px, _, _ = self.get_aruco_midpoint(corners)
-        #aruco_depth, _, _ = self.transform_aruco_midpoint_to_metric_system(aruco_midpoint)
-        corners_in_metric_system = np.concatenate((corners_in_metric_system, np.ones((corners_in_metric_system.shape[0],1))), axis = 1)
-
-        for i in range(corners.shape[0]):
-            row = corners[i,:]
-            # aruco_midpoint[0] -> aruco_depth_px
-            # aruco_midpoint[1] -> -row[0]
-            # aruco_midpoint[2] -> -row[1]
-            x_m = (0.25738586)*(aruco_depth_px) + 0.05862189
-
-            x_px_times_y_px = aruco_depth_px*(-row[0])
-            y_m = 0.29283879*aruco_depth_px + 0.00050015*(-row[0]) + 0.00094536*x_px_times_y_px + 0.23096646
-
-            x_px_times_z_px = aruco_depth_px*(-row[1])
-            z_m = 0.16725805*aruco_depth_px - 0.00069012*(-row[1]) + 0.00098029*x_px_times_z_px - 0.04520938
-            corners_in_metric_system[i] = [x_m, y_m, z_m]
-        return corners_in_metric_system        
-
-    def twenty_cm_len_filter(self, corners):
-        corners_in_metric_system = self.transform_aruco_corners_to_metric_system(corners)
-        aruco_side_lenghts = []
-        for i in range(4):
-            xyz_dist = corners_in_metric_system[ (i+1)%4 ] - corners_in_metric_system[i]
-            xyz_dist = tuple(xyz_dist)
-            aruco_side_lenghts.append( self.euclidean_distance(xyz_dist) )
-        return abs(max(aruco_side_lenghts) - 0.2) <= 0.1 and abs(min(aruco_side_lenghts) - 0.2) <= 0.1
-
-    def square_filter(self, tr, br, bl, tl):
-        top = abs(tr[0] - tl[0])
-        bottom = abs(br[0] - bl[0])
-        right = abs(tr[1] - br[1])
-        left = abs(tl[1] - bl[1])
-        min_side = min(top,bottom,right,left)
-        max_side = max(top,bottom,right,left)
-        #print(max_side - min_side)
-        is_square = max_side - min_side < self.square_filter_trh
-
-        return is_square
-
     def main(self):
         while not rospy.is_shutdown():
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
             self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
+
             if self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
                 # Retrieve left image
                 self.zed_camera.retrieve_image(self.image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self.image_size)
@@ -270,14 +219,21 @@ class ArucoDetector():
                 self.zed_camera.retrieve_image(self.depth_image_zed, sl.VIEW.DEPTH, sl.MEM.CPU, self.image_size)
                 # Retrieve colored point cloud. Point cloud is aligned on the left image.
                 self.zed_camera.retrieve_measure(self.point_cloud, sl.MEASURE.DEPTH, sl.MEM.CPU, self.image_size)
-                self.image_ocv = self.image_zed.get_data()
-                self.image_ocv = self.image_ocv[:,:,:-1]
-                self.depth_image_ocv = self.depth_image_zed.get_data()
-                self.point_cloud_ocv = self.point_cloud.get_data()
+
+                if self.flag == "False":
+                    self.image_ocv = self.image_zed.get_data() 
+                    self.image_ocv = self.image_ocv[:,:,:-1] 
+                    self.depth_image_ocv = self.depth_image_zed.get_data()   
+                    self.point_cloud_ocv = self.point_cloud.get_data() 
+                else:
+                    
+                    self.camera = cv2.VideoCapture(0) # image is retrieved using cv2
+                    _, image = self.camera.read()
+                    self.image_ocv = image
+                    self.depth_image_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels  
+                    self.point_cloud_ocv = np.full((self.image_size.width, self.image_size.height), 255.0) # Harcoded to numpy array with a val of 255.0 on all pixels
 
                 aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
-                aruco_corners = self.filters(aruco_corners)
-                
                 self.displayed_image_ocv = self.image_ocv.copy()
                 if len(aruco_corners) > 0:
                     self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
