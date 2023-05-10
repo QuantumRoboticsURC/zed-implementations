@@ -84,6 +84,8 @@ class ArucoDetector():
         self.curr_signs_image_msg_2 = Image()
         self.curr_signs_image_msg_3 = Image()
 
+        self.square_filter_trh = 20
+
 
     def draw_arucos(sel, image, corners):
         # verify *at least* one ArUco marker was detected
@@ -115,7 +117,7 @@ class ArucoDetector():
         (corners, ids, rejected) = self.arucoDetector.detectMarkers(image)    
         return (corners, ids)
 
-    def midpoint_equation(self, p1, p2):
+    def midpoint_equation(self, p1, p2): # TODO change to 2 equation model 
         return ( (p1[0]+p2[0])/2, (p1[1]+p2[1])/2 )
 
     def get_aruco_midpoint(self, rectangle_corners):
@@ -191,6 +193,41 @@ class ArucoDetector():
         ros_point.z = tuple_point[2]
         return ros_point
 
+    def filters (self, arucos_list):
+        new_arcuso_list = ()
+        
+        # verify *at least* one ArUco marker was detected
+        if len(arucos_list) > 0:
+			# loop over the detected ArUCo corners
+            for aruco in arucos_list:
+                corners = aruco.reshape((4, 2))
+                (topLeft, topRight, bottomRight, bottomLeft) = corners
+
+				# convert each of the (x, y)-coordinate pairs to integers
+                topRight = (int(topRight[0]), int(topRight[1]))
+                bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
+                bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
+                topLeft = (int(topLeft[0]), int(topLeft[1]))
+
+                ############# square filter ##############
+                if self.square_filter(topRight, bottomRight, bottomLeft, topLeft):
+                    new_arcuso_list = aruco
+
+            return new_arcuso_list
+        return arucos_list                       
+
+    def square_filter(self, tr, br, bl, tl):
+        top = abs(tr[0] - tl[0])
+        bottom = abs(br[0] - bl[0])
+        right = abs(tr[1] - br[1])
+        left = abs(tl[1] - bl[1])
+        min_side = min(top,bottom,right,left)
+        max_side = max(top,bottom,right,left)
+        print(max_side - min_side)
+        is_square = max_side - min_side < self.square_filter_trh
+
+        return is_square
+
     def main(self):
         while not rospy.is_shutdown():
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
@@ -208,6 +245,8 @@ class ArucoDetector():
                 self.point_cloud_ocv = self.point_cloud.get_data()
 
                 aruco_corners, aruco_ids = self.get_arucos_info_in_image(self.image_ocv)
+                aruco_corners = self.filters(aruco_corners)
+                
                 self.displayed_image_ocv = self.image_ocv.copy()
                 if len(aruco_corners) > 0:
                     self.displayed_image_ocv = self.draw_arucos(self.displayed_image_ocv, aruco_corners)                
