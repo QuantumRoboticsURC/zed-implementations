@@ -84,7 +84,7 @@ class ArucoDetector():
         self.curr_signs_image_msg_2 = Image()
         self.curr_signs_image_msg_3 = Image()
 
-        self.square_filter_trh = 20
+        self.square_filter_percentaje = 0.8
 
 
     def draw_arucos(sel, image, corners):
@@ -223,8 +223,8 @@ class ArucoDetector():
         left = abs(tl[1] - bl[1])
         min_side = min(top,bottom,right,left)
         max_side = max(top,bottom,right,left)
-        print(max_side - min_side)
-        is_square = max_side - min_side < self.square_filter_trh
+        print("max: ", max_side, "min: ", min_side)
+        is_square = max_side * self.square_filter_percentaje < min_side
 
         return is_square
 
