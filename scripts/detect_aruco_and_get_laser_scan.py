@@ -84,7 +84,20 @@ class ArucoDetector():
         self.image_aruco_mask = rospy.Publisher("/image_arucos_mask", Image, queue_size = 1)
         self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 1)
         self.laser_scan_publisher = rospy.Publisher("/scan", LaserScan, queue_size = 1)
-        self.image_laser_scan_pub = rospy.Publisher("/image_as_laser_scan", Image, queue_size = 1)    
+        self.image_laser_scan_pub = rospy.Publisher("/image_as_laser_scan", Image, queue_size = 1)
+
+        # ________ Laser Scan atributes initialization ______ 
+
+        self.depth_image_from_camera_compressed = np.zeros((self.image_size.width,), dtype=np.float32)
+
+        self.laser_whole_angle = 110.0
+        self.laser_angle_min =  -((self.laser_whole_angle/2)*np.pi)/180.0
+        self.laser_angle_max =  ((self.laser_whole_angle/2)*np.pi)/180.0
+        self.laser_width = self.image_size.width
+        self.laser_angle_increment = (self.laser_width/self.laser_whole_angle)*(np.pi/180)
+        self.laser_range_min = 0.0
+        self.laser_range_max = 0.0
+        self.laser_ranges = []
 
         #__________ image ______________
         self.curr_signs_image_msg = Image()
@@ -287,21 +300,47 @@ class ArucoDetector():
 
         return laser_scan
     
-    def avg_laser_scan(self, laser_scan):
+    def transform_point_to_metric_system(self, point): 
+   
+        x_m = (0.25738586)*(point[0]) + 0.05862189
+
+        x_px_times_y_px = point[0]*point[1]
+        y_m = 0.29283879*point[0] + 0.00050015*point[1] + 0.00094536*x_px_times_y_px + 0.23096646
+        
+        return x_m, y_m
+    
+    def get_laser_values_in_meters(self,laser_scan):
 
         new_laser_scan = []
-        for i in range(0,len(laser_scan),3):
-            avg_element = [laser_scan[i],laser_scan[i+1],laser_scan[i+2]]
-            new_laser_scan.append(np.mean(avg_element))
-        
-        return new_laser_scan
 
-    def create_laser_scan_msg(self,laser_scan_vecor):
+        for i in range(len(laser_scan)):
+            x_pixel = laser_scan[i] # Not sure
+            y_pixel = i
+            xm,ym = self.transform_point_to_metric_system([x_pixel,y_pixel])
+            tupla = (xm,ym,0.0)
+            euclidean_distance_value = self.euclidean_distance(tupla)
+            new_laser_scan.append(euclidean_distance_value)
+
+
+        return new_laser_scan
+        
+
+    def pub_laser_scan_msg(self,laser_scan_vector):
 
         laser = LaserScan()
+        laser.angle_min = self.laser_angle_min
+        laser.angle_max = self.laser_angle_max
+        laser.angle_increment = self.laser_angle_increment
+        laser.range_min = self.laser_range_min
+        laser.range_max = self.laser_range_max
+        laser.ranges = laser_scan_vector
+
+        self.laser_scan_publisher.publish(laser)
+
 
     def main(self):
         while not rospy.is_shutdown():
+
             self.arucos_mask = np.zeros((self.image_size.height, self.image_size.width, 3), dtype = np.int8)
             self.arucos_mask_with_distance = np.zeros((self.image_size.height, self.image_size.width), dtype = np.float64)
             if self.zed_camera.grab(self.zed_runtime_parameters) == sl.ERROR_CODE.SUCCESS:
@@ -311,6 +350,7 @@ class ArucoDetector():
                 self.zed_camera.retrieve_image(self.depth_image_zed, sl.VIEW.DEPTH, sl.MEM.CPU, self.image_size)
                 # Retrieve colored point cloud. Point cloud is aligned on the left image.
                 self.zed_camera.retrieve_measure(self.point_cloud, sl.MEASURE.DEPTH, sl.MEM.CPU, self.image_size)
+
                 self.image_ocv = self.image_zed.get_data()
                 self.image_ocv = self.image_ocv[:,:,:-1]
                 self.depth_image_ocv = self.depth_image_zed.get_data()
@@ -330,13 +370,21 @@ class ArucoDetector():
                     #closest_aruco_position = self.transform_aruco_midpoint_to_metric_system(closest_aruco_position)                
                     self.closest_aruco_position_publisher.publish( self.tuple_position_2_ros_position(closest_aruco_position))
 
+                
+                #gray_scan_image = cv2.cvtColor(self.image_ocv, cv2.COLOR_BGR2GRAY)
+                self.depth_image_from_camera_compressed = self.depth_image_to_laser_scan(self.point_cloud,1)
+                vector_laser_scan = self.get_laser_values_in_meters(self.depth_image_from_camera_compressed)
+                self.pub_laser_scan_msg(vector_laser_scan)
+
                 self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
                 self.image_pub.publish(self.curr_signs_image_msg)
+
                 self.curr_signs_image_msg_2 = self.cv2_to_imgmsg(self.arucos_mask, encoding = "bgr8")
                 self.image_aruco_mask.publish(self.curr_signs_image_msg_2)
 
-                """ self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.arucos_mask_with_distance, encoding = "bgr8")
-                self.image_aruco_mask_distance.publish(self.curr_signs_image_msg_3) """ 
+                """
+                self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.depth_image_from_camera_compressed, encoding = "bgr8")
+                self.image_laser_scan_pub.publish(self.curr_signs_image_msg_3) """
 
 if __name__ == "__main__":
     aruco_detector = ArucoDetector()
