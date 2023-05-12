@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 
-"""Made by:Erika García Sánchez
+"""Made by:
+    Erika García Sánchez
 	A01745158@tec.mx
 	erika.mgs@outlook.com
 	José Ángel del Ángel
     joseangeldelangel10@gmail.com
+    Leonardo Javier Nava Castellanos
+    A01750595@tec.mx
+	navaleonardo40@gmail.com
 
 Modified (15/12/2022): 
 		José Ángel del Ángel and Erika García 16/12/2022 Aruco detection code cleanup 
 		José Ángel del Ángel 16/12/2022 Aruco mask with distance added
+        Leonardo Nava 10/05/2023 Adding LaserScanner 
 
 Code description:
 TODO - update code description and notes 
@@ -32,7 +37,7 @@ import cv2
 import sys
 import math
 from std_msgs.msg import String, Int8, Header
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, LaserScan
 from geometry_msgs.msg import Point
 
 
@@ -77,7 +82,9 @@ class ArucoDetector():
         self.closest_aruco_position_publisher = rospy.Publisher("/closest_aruco_distance", Point, queue_size = 1)
         self.image_pub = rospy.Publisher("/image_detecting", Image, queue_size = 1)
         self.image_aruco_mask = rospy.Publisher("/image_arucos_mask", Image, queue_size = 1)
-        self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 1)        
+        self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 1)
+        self.laser_scan_publisher = rospy.Publisher("/scan", LaserScan, queue_size = 1)
+        self.image_laser_scan_pub = rospy.Publisher("/image_as_laser_scan", Image, queue_size = 1)    
 
         #__________ image ______________
         self.curr_signs_image_msg = Image()
@@ -183,9 +190,6 @@ class ArucoDetector():
 
         return positions_and_euclidean_distances[0][0]
 
-        
-
-
     def tuple_position_2_ros_position(self, tuple_point):
         ros_point = Point()
         ros_point.x = tuple_point[0]
@@ -258,6 +262,43 @@ class ArucoDetector():
         is_square = max_side - min_side < self.square_filter_trh
 
         return is_square
+    
+    def depth_image_to_laser_scan(self,gray_img, n):
+
+        width = gray_img.shape[1]
+        
+        # Initialize an empty array
+        laser_scan = np.zeros((width,), dtype=np.float32)
+        
+        # Iterate over each column of the image
+        for i in range(width):
+            # Get the pixel values for the current column
+            column = gray_img[:, i]
+            
+            # Sort the pixel values in ascending order
+            sorted_column = np.sort(column)[:n]
+            
+            # Compute the average of the n smallest pixel values
+            avg = np.mean(sorted_column)
+            
+            # Add the average value to the laser scan data
+            laser_scan[i] = avg
+
+
+        return laser_scan
+    
+    def avg_laser_scan(self, laser_scan):
+
+        new_laser_scan = []
+        for i in range(0,len(laser_scan),3):
+            avg_element = [laser_scan[i],laser_scan[i+1],laser_scan[i+2]]
+            new_laser_scan.append(np.mean(avg_element))
+        
+        return new_laser_scan
+
+    def create_laser_scan_msg(self,laser_scan_vecor):
+
+        laser = LaserScan()
 
     def main(self):
         while not rospy.is_shutdown():
