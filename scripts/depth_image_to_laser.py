@@ -4,6 +4,7 @@ import time
 import numpy as np
 import cv2
 from time import process_time
+from PIL import Image
 
 gray_img = cv2.imread('./images/grayscale_img.jpeg', cv2.IMREAD_GRAYSCALE)
 
@@ -60,10 +61,16 @@ def get_smallest_values_per_column(gray_img):
 
     return smallest_values
 
+def np_array_to_image(np_array):
+    image = Image.fromarray(np.uint8(np_array))
+    image.show()
+
+
 if __name__ == "__main__":
     img_prueba = np_image(5,10)
     print("resultado\n", depth_image_to_laser_scan(img_prueba, 1))
-    
+    np_array = np.array([[0],[128],[255]])
+    np_array_to_image(np_array)
     # print("smallest values \n", get_smallest_values_per_column(img_prueba))
     # cv2.imshow("image", img_prueba)
     # cv2.waitKey(0)
