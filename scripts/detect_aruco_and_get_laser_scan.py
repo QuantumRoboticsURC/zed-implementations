@@ -88,7 +88,7 @@ class ArucoDetector():
 
         # ________ Laser Scan atributes initialization ______ 
 
-        self.depth_image_from_camera_compressed = np.zeros((self.image_size.width,), dtype=np.float32)
+        #self.depth_image_from_camera_compressed = np.zeros((self.image_size.width,), dtype=np.float32)
 
         self.laser_whole_angle = 110.0
         self.laser_angle_min =  -((self.laser_whole_angle/2)*np.pi)/180.0
@@ -371,20 +371,24 @@ class ArucoDetector():
                     self.closest_aruco_position_publisher.publish( self.tuple_position_2_ros_position(closest_aruco_position))
 
                 
-                #gray_scan_image = cv2.cvtColor(self.image_ocv, cv2.COLOR_BGR2GRAY)
-                self.depth_image_from_camera_compressed = self.depth_image_to_laser_scan(self.point_cloud,1)
-                vector_laser_scan = self.get_laser_values_in_meters(self.depth_image_from_camera_compressed)
+                gray_scan_image = cv2.cvtColor(self.depth_image_ocv, cv2.COLOR_BGR2GRAY)
+                depth_image_from_camera_compressed = self.depth_image_to_laser_scan(gray_scan_image,100)
+                depth_image_from_camera_compressed_ocv = depth_image_from_camera_compressed.copy()
+                depth_image_from_camera_compressed_ocv = cv2.merge((depth_image_from_camera_compressed_ocv,depth_image_from_camera_compressed_ocv,depth_image_from_camera_compressed_ocv))
+                depth_image_from_camera_compressed_ocv = depth_image_from_camera_compressed_ocv.astype(int)
+
+                vector_laser_scan = self.get_laser_values_in_meters(depth_image_from_camera_compressed)
                 self.pub_laser_scan_msg(vector_laser_scan)
+                
 
                 self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
                 self.image_pub.publish(self.curr_signs_image_msg)
 
                 self.curr_signs_image_msg_2 = self.cv2_to_imgmsg(self.arucos_mask, encoding = "bgr8")
                 self.image_aruco_mask.publish(self.curr_signs_image_msg_2)
-
-                """
-                self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.depth_image_from_camera_compressed, encoding = "bgr8")
-                self.image_laser_scan_pub.publish(self.curr_signs_image_msg_3) """
+                
+                self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(depth_image_from_camera_compressed_ocv, encoding = "bgr8")
+                self.image_laser_scan_pub.publish(self.curr_signs_image_msg_3) 
 
 if __name__ == "__main__":
     aruco_detector = ArucoDetector()
