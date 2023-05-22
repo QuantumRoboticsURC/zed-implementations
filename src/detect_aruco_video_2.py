@@ -78,11 +78,12 @@ class ArucoDetector():
         self.image_pub = rospy.Publisher("/image_detecting", Image, queue_size = 1)
         self.image_aruco_mask = rospy.Publisher("/image_arucos_mask", Image, queue_size = 1)
         self.image_aruco_mask_distance = rospy.Publisher("arucos_mask_with_distance", Image, queue_size = 1)        
-
+        self.image_point_cloud_ocv = rospy.Publisher("/image_point_cloud_ocv")
         #__________ image ______________
         self.curr_signs_image_msg = Image()
         self.curr_signs_image_msg_2 = Image()
         self.curr_signs_image_msg_3 = Image()
+        self.curr_signs_image_msg_4 = Image()
 
         self.square_filter_trh = 20
 
@@ -293,7 +294,8 @@ class ArucoDetector():
                 self.image_pub.publish(self.curr_signs_image_msg)
                 self.curr_signs_image_msg_2 = self.cv2_to_imgmsg(self.arucos_mask, encoding = "bgr8")
                 self.image_aruco_mask.publish(self.curr_signs_image_msg_2)
-
+                self.curr_signs_image_msg_4 = self.cv2_to_imgmsg(self.point_cloud_ocv, encoding = "bgr8")
+                self.image_point_cloud_ocv.publish(self.image_point_cloud_ocv)
                 """ self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.arucos_mask_with_distance, encoding = "bgr8")
                 self.image_aruco_mask_distance.publish(self.curr_signs_image_msg_3) """ 
 
