@@ -294,8 +294,9 @@ class ArucoDetector():
                 self.image_pub.publish(self.curr_signs_image_msg)
                 self.curr_signs_image_msg_2 = self.cv2_to_imgmsg(self.arucos_mask, encoding = "bgr8")
                 self.image_aruco_mask.publish(self.curr_signs_image_msg_2)
-                self.curr_signs_image_msg_4 = self.cv2_to_imgmsg(self.point_cloud_ocv, encoding = "bgr8")
-                self.image_point_cloud_ocv.publish(self.image_point_cloud_ocv)
+                three_channel_point_cloud = cv2.merge((self.point_cloud_ocv, self.point_cloud_ocv, self.point_cloud_ocv))
+                self.curr_signs_image_msg_4 = self.cv2_to_imgmsg(three_channel_point_cloud, encoding = "bgr8")
+                self.image_point_cloud_ocv.publish(self.curr_signs_image_msg_4)
                 """ self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.arucos_mask_with_distance, encoding = "bgr8")
                 self.image_aruco_mask_distance.publish(self.curr_signs_image_msg_3) """ 
 
