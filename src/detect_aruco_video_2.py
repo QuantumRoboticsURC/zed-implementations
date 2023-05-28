@@ -48,14 +48,15 @@ class ArucoDetector():
         # ________ camera atributes initialization ______
         self.zed_camera = sl.Camera()
         self.zed_init_params = sl.InitParameters()
-        self.zed_init_params.depth_mode = sl.DEPTH_MODE.ULTRA  # Use PERFORMANCE depth mode
+        self.zed_init_params.depth_mode = sl.DEPTH_MODE.PERFORMANCE  # Use PERFORMANCE depth mode
         self.zed_init_params.camera_resolution = sl.RESOLUTION.HD720
         err = self.zed_camera.open(self.zed_init_params)
         if err != sl.ERROR_CODE.SUCCESS:
             exit(1)
         rospy.sleep(1.0)
         self.zed_runtime_parameters = sl.RuntimeParameters()
-        self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.STANDARD  # Use STANDARD sensing mode
+        self.zed_runtime_parameters.sensing_mode = sl.SENSING_MODE.FILL  # Use STANDARD sensing mode
+        #sl.SENSING_MODE.FILL
         self.zed_runtime_parameters.confidence_threshold = 100
         self.zed_runtime_parameters.textureness_confidence_threshold = 100
         self.image_size = self.zed_camera.get_camera_information().camera_resolution
@@ -246,7 +247,7 @@ class ArucoDetector():
             xyz_dist = corners_in_metric_system[ (i+1)%4 ] - corners_in_metric_system[i]
             xyz_dist = tuple(xyz_dist)
             aruco_side_lenghts.append( self.euclidean_distance(xyz_dist) )
-        return abs(max(aruco_side_lenghts) - 0.2) <= 0.1 and abs(min(aruco_side_lenghts) - 0.2) <= 0.1
+        return abs(max(aruco_side_lenghts) - 0.2) <= 1.9 and abs(min(aruco_side_lenghts) - 0.2) <= 1.9
 
     def square_filter(self, tr, br, bl, tl):
         top = abs(tr[0] - tl[0])
@@ -290,11 +291,17 @@ class ArucoDetector():
                     #closest_aruco_position = self.transform_aruco_midpoint_to_metric_system(closest_aruco_position)                
                     self.closest_aruco_position_publisher.publish( self.tuple_position_2_ros_position(closest_aruco_position))
 
+                self.displayed_image_ocv = cv2.resize(self.displayed_image_ocv, (130,100), interpolation = cv2.INTER_AREA) 
                 self.curr_signs_image_msg = self.cv2_to_imgmsg(self.displayed_image_ocv, encoding = "bgr8")
                 self.image_pub.publish(self.curr_signs_image_msg)
                 self.curr_signs_image_msg_2 = self.cv2_to_imgmsg(self.arucos_mask, encoding = "bgr8")
-                self.image_aruco_mask.publish(self.curr_signs_image_msg_2)
-                three_channel_point_cloud = cv2.merge((self.point_cloud_ocv, self.point_cloud_ocv, self.point_cloud_ocv))
+                self.image_aruco_mask.publish(self.curr_signs_image_msg_2)                
+                three_channel_point_cloud = cv2.merge(
+                    (np.floor(np.nan_to_num(self.point_cloud_ocv)).astype(np.uint8), 
+                     np.floor(np.nan_to_num(self.point_cloud_ocv)).astype(np.uint8),
+                     np.floor(np.nan_to_num(self.point_cloud_ocv)).astype(np.uint8))
+                    )
+                #print("depth image shape is: {d}".format(d = self.depth_image_zed_ocv.shape))
                 self.curr_signs_image_msg_4 = self.cv2_to_imgmsg(three_channel_point_cloud, encoding = "bgr8")
                 self.image_point_cloud_ocv.publish(self.curr_signs_image_msg_4)
                 """ self.curr_signs_image_msg_3 = self.cv2_to_imgmsg(self.arucos_mask_with_distance, encoding = "bgr8")

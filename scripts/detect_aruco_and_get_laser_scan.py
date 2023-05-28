@@ -37,7 +37,7 @@ import cv2
 import sys
 import math
 from std_msgs.msg import String, Int8, Header
-from sensor_msgs.msg import Image, LaserScan
+from sensor_msgs.msg import Image, LaserScan 
 from geometry_msgs.msg import Point
 
 
@@ -94,9 +94,9 @@ class ArucoDetector():
         self.laser_angle_min =  -((self.laser_whole_angle/2)*np.pi)/180.0
         self.laser_angle_max =  ((self.laser_whole_angle/2)*np.pi)/180.0
         self.laser_width = self.image_size.width
-        self.laser_angle_increment = (self.laser_width/self.laser_whole_angle)*(np.pi/180)
+        self.laser_angle_increment = (self.laser_whole_angle/self.laser_width)*(np.pi/180)
         self.laser_range_min = 0.0
-        self.laser_range_max = 0.0
+        self.laser_range_max = 100.0        
         self.laser_ranges = []
 
         #__________ image ______________
@@ -327,13 +327,16 @@ class ArucoDetector():
 
     def pub_laser_scan_msg(self,laser_scan_vector):
 
-        laser = LaserScan()
+        laser = LaserScan()        
+        laser.header.stamp = rospy.get_rostime()
+        laser.header.frame_id = "map"
         laser.angle_min = self.laser_angle_min
         laser.angle_max = self.laser_angle_max
         laser.angle_increment = self.laser_angle_increment
         laser.range_min = self.laser_range_min
         laser.range_max = self.laser_range_max
-        laser.ranges = laser_scan_vector
+        laser.ranges = laser_scan_vector        
+        #laser.intensities = laser_scan_vector
 
         self.laser_scan_publisher.publish(laser)
 
